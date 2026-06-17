@@ -1,0 +1,32 @@
+# Office temporary files
+~$*.xlsx
+~$*.docx
+~$*.pptx
+~$*.xls
+~$*.doc
+~$*.ppt
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Databricks
+.databricks/
+.dbsql/
