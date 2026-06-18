@@ -1,0 +1,78 @@
+-- FND-002 Control Tables DDL  (insurelake_config.config)
+-- Unity Catalog, Delta. Informational PK/FK constraints (RELY).
+-- Implemented today: cfg_source, cfg_target, cfg_load, cfg_transform, cfg_dq_rule.
+-- Planned: cfg_recon_rule, cfg_masking_rule, cfg_dependency.
+
+CREATE CATALOG IF NOT EXISTS insurelake_config;
+CREATE SCHEMA  IF NOT EXISTS insurelake_config.config;
+
+CREATE TABLE IF NOT EXISTS insurelake_config.config.cfg_source (
+  source_id STRING NOT NULL, source_name STRING, source_type STRING, source_system STRING,
+  connection_string STRING, file_format STRING, schema_location STRING,
+  credential_scope STRING, credential_key STRING, business_domain STRING,
+  pii_flag BOOLEAN, data_classification STRING, sla_hours INT, active_flag BOOLEAN,
+  created_by STRING, created_ts TIMESTAMP, updated_by STRING, updated_ts TIMESTAMP,
+  CONSTRAINT pk_cfg_source PRIMARY KEY (source_id)
+) USING DELTA;
+
+CREATE TABLE IF NOT EXISTS insurelake_config.config.cfg_target (
+  target_id STRING NOT NULL, target_name STRING, catalog_name STRING, schema_name STRING,
+  table_name STRING, layer STRING, table_type STRING, format STRING,
+  partition_columns ARRAY<STRING>, liquid_clustering_columns ARRAY<STRING>, primary_key ARRAY<STRING>,
+  acord_entity STRING, retention_days INT, enable_cdf BOOLEAN, active_flag BOOLEAN,
+  created_by STRING, created_ts TIMESTAMP, updated_by STRING, updated_ts TIMESTAMP,
+  CONSTRAINT pk_cfg_target PRIMARY KEY (target_id)
+) USING DELTA;
+
+CREATE TABLE IF NOT EXISTS insurelake_config.config.cfg_load (
+  load_id STRING NOT NULL, load_name STRING, source_id STRING, target_id STRING,
+  load_type STRING, load_pattern STRING, engine STRING,
+  watermark_column STRING, watermark_type STRING, checkpoint_location STRING, trigger_interval STRING,
+  merge_keys STRING, autoloader_options MAP<STRING,STRING>, schedule_cron STRING, depends_on STRING,
+  active_flag BOOLEAN, created_by STRING, created_ts TIMESTAMP, updated_by STRING, updated_ts TIMESTAMP,
+  CONSTRAINT pk_cfg_load PRIMARY KEY (load_id),
+  CONSTRAINT fk_load_source FOREIGN KEY (source_id) REFERENCES insurelake_config.config.cfg_source(source_id),
+  CONSTRAINT fk_load_target FOREIGN KEY (target_id) REFERENCES insurelake_config.config.cfg_target(target_id)
+) USING DELTA;
+
+CREATE TABLE IF NOT EXISTS insurelake_config.config.cfg_transform (
+  transform_id STRING NOT NULL, transform_name STRING, source_target_id STRING, destination_target_id STRING,
+  transform_type STRING, transform_sql STRING, transform_python STRING, acord_mapping_template STRING,
+  scd_type STRING, scd_key_columns STRING, scd_timestamp_column STRING, engine STRING, dependencies STRING,
+  active_flag BOOLEAN, created_by STRING, created_ts TIMESTAMP, updated_by STRING, updated_ts TIMESTAMP,
+  CONSTRAINT pk_cfg_transform PRIMARY KEY (transform_id),
+  CONSTRAINT fk_tf_src FOREIGN KEY (source_target_id) REFERENCES insurelake_config.config.cfg_target(target_id),
+  CONSTRAINT fk_tf_dst FOREIGN KEY (destination_target_id) REFERENCES insurelake_config.config.cfg_target(target_id)
+) USING DELTA;
+
+CREATE TABLE IF NOT EXISTS insurelake_config.config.cfg_dq_rule (
+  dq_rule_id STRING NOT NULL, rule_name STRING, target_id STRING, rule_type STRING,
+  column_name STRING, rule_expression STRING, threshold_percent DOUBLE, on_failure STRING,
+  active_flag BOOLEAN, created_by STRING, created_ts TIMESTAMP, updated_by STRING, updated_ts TIMESTAMP,
+  CONSTRAINT pk_cfg_dq_rule PRIMARY KEY (dq_rule_id),
+  CONSTRAINT fk_dq_target FOREIGN KEY (target_id) REFERENCES insurelake_config.config.cfg_target(target_id)
+) USING DELTA;
+
+-- ---- PLANNED ----
+CREATE TABLE IF NOT EXISTS insurelake_config.config.cfg_recon_rule (
+  recon_rule_id STRING NOT NULL, rule_name STRING, load_id STRING, target_id STRING,
+  recon_type STRING, source_ref STRING, target_ref STRING, measure_column STRING,
+  tolerance_percent DOUBLE, on_break STRING, active_flag BOOLEAN,
+  created_by STRING, created_ts TIMESTAMP, updated_by STRING, updated_ts TIMESTAMP,
+  CONSTRAINT pk_cfg_recon_rule PRIMARY KEY (recon_rule_id)
+) USING DELTA;
+
+CREATE TABLE IF NOT EXISTS insurelake_config.config.cfg_masking_rule (
+  masking_rule_id STRING NOT NULL, rule_name STRING, target_id STRING, column_name STRING,
+  classification STRING, technique STRING, mask_function STRING, reversible_flag BOOLEAN,
+  active_flag BOOLEAN, created_by STRING, created_ts TIMESTAMP, updated_by STRING, updated_ts TIMESTAMP,
+  CONSTRAINT pk_cfg_masking_rule PRIMARY KEY (masking_rule_id),
+  CONSTRAINT fk_mask_target FOREIGN KEY (target_id) REFERENCES insurelake_config.config.cfg_target(target_id)
+) USING DELTA;
+
+CREATE TABLE IF NOT EXISTS insurelake_config.config.cfg_dependency (
+  dependency_id STRING NOT NULL, object_type STRING, object_id STRING, depends_on_id STRING,
+  dependency_type STRING, active_flag BOOLEAN,
+  created_by STRING, created_ts TIMESTAMP, updated_by STRING, updated_ts TIMESTAMP,
+  CONSTRAINT pk_cfg_dependency PRIMARY KEY (dependency_id)
+) USING DELTA;
