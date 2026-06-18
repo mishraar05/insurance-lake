@@ -1,10 +1,10 @@
 ---
 id: control.cost-tracking
-name: Cost Tracking
+name: cost-tracking
 category: control
 version: 0.1.0
 maturity: draft
-status: scaffold
+status: active
 owner_role: Data Engineer
 runtime: notebook
 fe_ready: true
@@ -21,34 +21,36 @@ tools: ['abc-sdk', 'system.billing']
 > Capture per-run DBU/time/Genie-session consumption and write it to ABC for FinOps.
 
 ## Purpose / when to use
-Capture per-run DBU/time/Genie-session consumption and write it to ABC for FinOps.
-_TODO: expand triggers and boundaries._
+Wrap every framework/skill run to capture consumption (DBU / time / Genie session) and write it to ABC. It is the data source for the FinOps dashboard and the customer cost estimate. Pairs with the ABC SDK `log_cost` method.
 
 ## Inputs (contract)
-- `run_context`
+- `run_context` - run_id, component, entity, start/end timestamps.
+- compute identifiers - warehouse_id, cluster_id, job_run_id, Genie session id.
 
 ## Procedure (Genie-Code-ready steps)
-_TODO: numbered, deterministic steps Genie Code can follow to produce the output._
+1. On run start, record start time + compute identifiers (via ABC `start_run`).
+2. On run end, gather consumption: run duration, SQL-warehouse DBU-time, Genie Code serverless DBUs (tag `databricks-product: genie`), token counts if available.
+3. On **paid**, join to `system.billing.usage` by tag/SKU for billable usage; on **Free Edition**, capture raw consumption only (DBU-seconds, durations) - no dollar amounts.
+4. Attribute consumption to unit keys (per feed / transform / Genie generation / run).
+5. Write via ABC `log_cost(run_id, consumption)`.
 
 ## Outputs (contract)
-- `consumption_metrics`
+- `consumption_metrics` - DBUs, durations, Genie sessions, tokens + attribution keys.
 
 ## Guardrails & policy
-_TODO: PII handling, coding/naming standards, must-nots._
+- No dollar figures on Free Edition (consumption only; $ is modeled later by build-finops using list prices).
+- Never fail the parent run on a cost-capture error - log and continue.
+- Respect the `databricks-product: genie` tag and Unity AI Gateway budgets.
 
 ## Govern hooks
-- Self-review: see [[control.self-review]]
-- Confidence scoring: see [[control.confidence-scoring]]
-- HITL gate: required before any write to a managed asset
-- ABC audit + cost: log via [[control.logging]] and [[control.cost-tracking]]
+- Writes through the ABC SDK (`log_cost`); feeds [[framework-dev.build-finops]] (FINOPS-002/010).
 
 ## Examples
-_TODO: 1-2 few-shot input -> output examples._
+- A `build-ingestion-engine` Genie Code run logs Genie serverless DBU-seconds + warehouse DBU-time, keyed to the component and feed.
 
 ## Acceptance / eval
-_TODO: golden test(s) + success metric (ties to BENCH scorecard)._
+- Every run has a cost record in ABC; on paid, consumption reconciles with `system.billing.usage`; build-finops can compute a unit cost from it.
 
 ## References
-- Backlog: FND-022
-- Spec: _TODO link to the component .md spec_
-- Shared: ../../_shared/standards.md, ../../_shared/abc-sdk-contract.md, ../../_shared/glossary.md
+- Backlog: FND-022 (depends on the ABC SDK, FND-011)
+- Shared: ../../_shared/abc-sdk-contract.md
