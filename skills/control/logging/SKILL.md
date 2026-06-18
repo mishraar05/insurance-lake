@@ -1,10 +1,10 @@
 ---
 id: control.logging
-name: Structured Logging
+name: logging
 category: control
 version: 0.1.0
 maturity: draft
-status: scaffold
+status: active
 owner_role: Data Engineer
 runtime: notebook
 fe_ready: true
@@ -21,36 +21,35 @@ tools: ['abc-sdk']
 > Emit standardized, correlated run/event logs with trace IDs to ABC.
 
 ## Purpose / when to use
-Emit standardized, correlated run/event logs with trace IDs to ABC.
-_TODO: expand triggers and boundaries._
+The observability substrate every skill and engine calls. It emits standardized, correlated run/event logs with a trace id to ABC so a run can be reconstructed end-to-end (ingestion -> gold). Pairs with ABC SDK `log_audit` / `log_exception`.
 
 ## Inputs (contract)
-- `run_context`
-- `event`
+- `run_context` - run_id, component, entity.
+- `event` - level, message, structured fields.
+- `trace_id` - generated at run start, propagated to every downstream step.
 
 ## Procedure (Genie-Code-ready steps)
-_TODO: numbered, deterministic steps Genie Code can follow to produce the output._
+1. Generate or propagate a `trace_id` at run start; attach it to all events in the run.
+2. Emit structured records (JSON: timestamp, run_id, trace_id, component, entity, level, event, fields).
+3. Redact PII/secret fields before emit (redaction list from standards).
+4. Route records to ABC (`log_audit` / `log_exception`) and to the platform log (DLT event log / driver logs).
+5. Keep levels and schema consistent across batch, streaming and DLT contexts.
 
 ## Outputs (contract)
-- `log_records`
-- `trace_id`
+- `log_records` (structured), `trace_id` for cross-component correlation.
 
 ## Guardrails & policy
-_TODO: PII handling, coding/naming standards, must-nots._
+- Never log PII or secrets (enforced redaction); consistent schema; non-blocking (logging failure must not fail the run).
 
 ## Govern hooks
-- Self-review: see [[control.self-review]]
-- Confidence scoring: see [[control.confidence-scoring]]
-- HITL gate: required before any write to a managed asset
-- ABC audit + cost: log via [[control.logging]] and [[control.cost-tracking]]
+- Underpins [[runtime.failure-triage]] (reads these), observability, and the agent audit trail; writes through the ABC SDK.
 
 ## Examples
-_TODO: 1-2 few-shot input -> output examples._
+- A harmonization run emits start / step / quality / end events under one trace_id; a failure additionally emits `log_exception`.
 
 ## Acceptance / eval
-_TODO: golden test(s) + success metric (ties to BENCH scorecard)._
+- All events for one run share a single trace_id and are queryable in ABC; no PII present; failure-triage can reconstruct the run from them.
 
 ## References
-- Backlog: FND-023
-- Spec: _TODO link to the component .md spec_
-- Shared: ../../_shared/standards.md, ../../_shared/abc-sdk-contract.md, ../../_shared/glossary.md
+- Backlog: FND-023 (depends on the ABC SDK, FND-011)
+- Shared: ../../_shared/abc-sdk-contract.md, ../../_shared/standards.md
