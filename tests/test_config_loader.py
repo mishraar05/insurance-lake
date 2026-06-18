@@ -254,10 +254,10 @@ class TestConfigLoaderGetSource:
         mock_df = Mock()
         mock_df.filter.return_value.collect.return_value = []
         
-        # Mock available IDs
-        mock_id_row1 = Mock()
+        # Mock available IDs using MagicMock to support __getitem__
+        mock_id_row1 = MagicMock()
         mock_id_row1.__getitem__.return_value = "src_policy_mainframe"
-        mock_id_row2 = Mock()
+        mock_id_row2 = MagicMock()
         mock_id_row2.__getitem__.return_value = "src_claim_system"
         mock_df.select.return_value.limit.return_value.collect.return_value = [mock_id_row1, mock_id_row2]
         
@@ -350,13 +350,19 @@ class TestConfigLoaderGetTarget:
 
     def test_list_targets_filtered_by_layer(self, mock_spark, sample_target_row):
         """Test list_targets filters by medallion layer."""
+        # Create mock chain: df -> filter(active_only) -> filter(layer) -> collect()
         mock_df = Mock()
-        filtered_df = Mock()
+        filtered_df1 = Mock()  # After active_only filter
+        filtered_df2 = Mock()  # After layer filter
+        
         mock_row = Mock()
         mock_row.asDict.return_value = sample_target_row
-        filtered_df.collect.return_value = [mock_row]
-        mock_df.filter.return_value = filtered_df
+        
+        # Set up the chain: table -> filter -> filter -> collect
         mock_spark.table.return_value = mock_df
+        mock_df.filter.return_value = filtered_df1
+        filtered_df1.filter.return_value = filtered_df2
+        filtered_df2.collect.return_value = [mock_row]
         
         with patch('pyspark.sql.SparkSession.getActiveSession', return_value=mock_spark):
             loader = ConfigLoader()
