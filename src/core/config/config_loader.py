@@ -7,14 +7,14 @@ Loads and validates metadata/config from Unity Catalog Delta tables.
 from typing import List, Optional, Dict
 from pyspark.sql import SparkSession
 
-from .models import (
+from ..metadata import (
     SourceConfig,
     TargetConfig,
     LoadConfig,
     TransformConfig,
     DQRuleConfig,
 )
-from .exceptions import (
+from ..common.exceptions import (
     ConfigNotFoundError,
     ConfigValidationError,
     CatalogConnectionError,

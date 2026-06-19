@@ -30,3 +30,5 @@ venv/
 # Databricks
 .databricks/
 .dbsql/
+# Scratch / experiments
+scratch/

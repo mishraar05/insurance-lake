@@ -1,0 +1,9 @@
+# EXAMPLE Job (rename to .yml when ready).
+resources:
+  jobs:
+    ingestion_job:
+      name: insurelake-ingestion-${bundle.target}
+      tasks:
+        - task_key: ingest
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.ingestion_pipeline.id}

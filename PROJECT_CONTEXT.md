@@ -95,3 +95,9 @@ Genie billing facts (verified Jun 2026): Genie Code launches a `PREMIUM_ALL_PURP
 - Agent Bricks Supervisor Agent (multi-agent) — https://docs.databricks.com/aws/en/generative-ai/agent-bricks/multi-agent-supervisor
 - Monitor costs using system tables — https://docs.databricks.com/aws/en/admin/usage/system-tables
 - Manage budgets and cost controls for Genie — https://learn.microsoft.com/en-us/azure/databricks/genie/budgets
+
+## 14. Refined build plan & agentic execution layer (2026-06-18)
+The build follows a bottom-up, quality-gated roadmap (`core -> dataio/services -> framework -> runners/agents`) with the **Agentic Execution Layer** as the primary UX: a governed chatbot where you pick from all framework capabilities, converse to produce a spec, and skills + Genie Code build the pipeline (control plane only; Spark/DLT runs the data). Every build step must pass a 9-point Quality Gate. Full plan: `docs/ROADMAP.md`.
+
+Decision log:
+- 2026-06-18 - Adopt the agentic chatbot (capability registry -> conversational spec-authoring -> router -> skills/Genie -> pipeline) as the primary execution UX, governed by HITL + ABC audit; control plane only. Build bottom-up by tier with a 9-point Quality Gate per step (`docs/ROADMAP.md`).

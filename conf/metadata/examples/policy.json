@@ -1,0 +1,38 @@
+{
+  "source": {
+    "source_id": "src_policycenter_policy",
+    "source_name": "PolicyCenter Policy",
+    "source_type": "CDC",
+    "source_system": "PolicyCenter",
+    "business_domain": "POLICY",
+    "pii_flag": true,
+    "data_classification": "CONFIDENTIAL",
+    "active_flag": true
+  },
+  "target_bronze": {
+    "target_id": "tgt_bronze_policy",
+    "catalog_name": "insurelake", "schema_name": "bronze", "table_name": "policy",
+    "layer": "BRONZE", "table_type": "MANAGED", "format": "DELTA",
+    "primary_key": ["policy_id"], "acord_entity": "Policy", "enable_cdf": true, "active_flag": true
+  },
+  "target_silver": {
+    "target_id": "tgt_silver_policy",
+    "catalog_name": "insurelake", "schema_name": "silver", "table_name": "policy",
+    "layer": "SILVER", "table_type": "MANAGED", "format": "DELTA",
+    "primary_key": ["policy_id"], "acord_entity": "Policy", "enable_cdf": true, "active_flag": true
+  },
+  "load": {
+    "load_id": "load_policy_cdc", "source_id": "src_policycenter_policy", "target_id": "tgt_bronze_policy",
+    "load_type": "STREAM_CDC", "load_pattern": "SCD2", "engine": "DECLARATIVE",
+    "merge_keys": "policy_id", "active_flag": true
+  },
+  "transform_silver": {
+    "transform_id": "tf_silver_policy", "source_target_id": "tgt_bronze_policy", "destination_target_id": "tgt_silver_policy",
+    "transform_type": "ACORD_MAPPING", "acord_mapping_template": "Policy",
+    "scd_type": "SCD2", "scd_key_columns": "policy_number", "engine": "DECLARATIVE", "active_flag": true
+  },
+  "dq_rules": [
+    {"dq_rule_id": "dq_policy_pk_notnull", "target_id": "tgt_silver_policy", "rule_type": "NOT_NULL", "column_name": "policy_id", "on_failure": "FAIL", "threshold_percent": 1.0, "active_flag": true},
+    {"dq_rule_id": "dq_policy_number_unique", "target_id": "tgt_silver_policy", "rule_type": "UNIQUE", "column_name": "policy_number", "on_failure": "QUARANTINE", "threshold_percent": 0.99, "active_flag": true}
+  ]
+}

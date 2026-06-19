@@ -1,0 +1,14 @@
+# EXAMPLE Lakeflow Declarative Pipeline (rename to .yml when the ingestion engine exists).
+resources:
+  pipelines:
+    ingestion_pipeline:
+      name: insurelake-ingestion-${bundle.target}
+      catalog: ${var.catalog}
+      target: bronze
+      serverless: true
+      libraries:
+        - notebook:
+            path: ../../src/runners/run_ingestion.py
+      configuration:
+        config_catalog: ${var.config_catalog}
+        abc_catalog: ${var.abc_catalog}

@@ -23,15 +23,15 @@ import sys
 
 sys.path.append("/Workspace/Users/cleancoding109@gmail.com/insurance-lake")
 
-from sdk import ConfigLoader
-from sdk.models import (
+from core.config import ConfigLoader
+from core.metadata import (
     SourceConfig,
     TargetConfig,
     LoadConfig,
     TransformConfig,
     DQRuleConfig,
 )
-from sdk.exceptions import (
+from core.common.exceptions import (
     ConfigNotFoundError,
     ConfigValidationError,
     ForeignKeyError,

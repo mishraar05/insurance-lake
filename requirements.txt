@@ -1,0 +1,4 @@
+# Runtime (pyspark, delta) is provided by Databricks Runtime / serverless.
+# Dev / test dependencies only (no wheel build):
+pytest>=7.0
+mypy==1.13.0

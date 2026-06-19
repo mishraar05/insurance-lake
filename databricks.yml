@@ -1,0 +1,33 @@
+# Databricks Asset Bundle - InsureLake P&C Accelerator
+# No wheel: Python is deployed as workspace files under src/ and referenced by jobs/pipelines.
+bundle:
+  name: insurance-lake
+
+include:
+  - resources/**/*.yml
+
+variables:
+  catalog:
+    description: Lakehouse Unity Catalog
+    default: insurelake
+  config_catalog:
+    description: Catalog holding metadata/config control tables
+    default: insurelake_config
+  abc_catalog:
+    description: Catalog holding ABC audit/balance/control tables
+    default: insurelake_abc
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://<your-dev-workspace>.cloud.databricks.com
+  staging:
+    mode: production
+    workspace:
+      host: https://<your-staging-workspace>.cloud.databricks.com
+  prod:
+    mode: production
+    workspace:
+      host: https://<your-prod-workspace>.cloud.databricks.com
