@@ -1,98 +1,47 @@
----
-id: foundation.contracts
-title: Core Contracts (Typed Interfaces)
-owner: EY
-status: active
-contracts_version: 0.1.0
-target_path: src/core/contracts/
-owning_skill: framework-dev.scaffold-structure
-backlog: [FND-031]
-provides: [Reader, LoadStrategy, Engine, RunContext, RunResult, Check, CheckResult, Masker]
-depends_on: [foundation.config-model]
-generation_context:            # the ONLY files the generator should read to build this
-  - src/core/metadata/*.py
-  - skills/_shared/standards.md
-acceptance:                    # executable; ALL must pass (run from repo root unless noted)
-  - "cd src && python -c 'import core.contracts'                 # imports without pyspark"
-  - "pytest tests/core/test_contracts.py"
-  - "cd src && mypy --ignore-missing-imports --follow-imports=silent core/contracts"
-regeneration: fully-generated  # whole package is generated from this spec; safe to overwrite; no hand edits
+# SOLID Update Example: contracts-spec.md
+
+**Purpose:** Show exactly what needs to be added to bring Wave 0/1 specs into compliance with updated templates  
+**Example Spec:** `foundation/contracts-spec.md` (Priority #1 - Critical)  
+**Date:** 2026-06-18
+
 ---
 
-# Core Contracts (Typed Interfaces) - Specification
+## What This Document Shows
 
-## 1. Purpose & scope
-Define the stable, typed boundaries that decouple the engines (`framework/`) from the reusable primitives (`dataio/`) and services. Implementations depend on these Protocols, never on each other - this keeps the dependency direction clean (`core <- dataio/services <- framework`) and lets us swap a reader or load-strategy without touching an engine.
+This is a **BEFORE vs. AFTER** comparison showing:
+* ✅ Current spec content (BEFORE) — sections that stay the same
+* 🆕 New SOLID content (AFTER) — what needs to be added
+* 📍 Exact placement of new sections
 
-- **In scope:** the Protocols `Reader`, `LoadStrategy`, `Engine`, `Check`, `Masker` + the value objects `RunContext`, `RunResult`, `CheckResult`.
-- **Out of scope:** any implementation (those live in `dataio/`, `services/`, `framework/`).
+---
 
-## 2. Requirements
-**Functional**
-- FR-1: Define `Reader`, `LoadStrategy`, `Engine`, `Check`, `Masker` Protocols.
-- FR-2: Define value objects `CheckResult`, and `RunContext`/`RunResult` for `Engine`.
-- FR-3: Type every parameter against `core.metadata` models (`SourceConfig`, `TargetConfig`, `LoadConfig`, `DQRuleConfig`, `MaskingRuleConfig`) - no `Any` in public signatures except `RunContext.params`.
-- FR-4: Protocols are `@runtime_checkable`.
+## Section-by-Section Changes
 
-**Non-functional**
-- NFR-1: Package imports without `pyspark` (`DataFrame` only under `TYPE_CHECKING`).
-- NFR-2: Pure structural typing (`Protocol`); implementers need not inherit.
-- NFR-3: Stable + versioned (`__version__`); see section 7.
-- NFR-4: Extensibility - support multi-customer customization via dependency injection.
+### ✅ Sections 1-4: No Changes
 
-## 3. Interface - exact skeleton (the generator MUST emit this)
-```python
-# src/core/contracts/engine.py
-@dataclass
-class RunContext:
-    component: str
-    entity: str
-    run_type: str
-    params: Optional[Dict[str, Any]] = None
+Sections 1-4 remain **exactly as-is**:
+* Section 1: Purpose & scope
+* Section 2: Requirements  
+* Section 3: Interface - exact skeleton
+* Section 4: Inputs / Outputs
 
-@dataclass
-class RunResult:
-    status: str                       # SUCCESS | FAILED
-    metrics: Dict[str, Any] = field(default_factory=dict)
-    run_id: Optional[str] = None
+---
 
-@runtime_checkable
-class Engine(Protocol):
-    def run(self, context: RunContext) -> RunResult: ...
+## 🆕 Section 5: Design (UPDATED)
 
-# src/core/contracts/reader.py
-@runtime_checkable
-class Reader(Protocol):
-    def read(self, source: SourceConfig, load: LoadConfig) -> "DataFrame": ...
+### BEFORE (Current)
 
-# src/core/contracts/load_strategy.py
-@runtime_checkable
-class LoadStrategy(Protocol):
-    def apply(self, df: "DataFrame", target: TargetConfig, load: LoadConfig) -> None: ...
-
-# src/core/contracts/check.py
-@dataclass
-class CheckResult:
-    rule_id: str
-    passed: bool
-    failed_count: int
-    action: str                       # WARN | FAIL | QUARANTINE
-
-@runtime_checkable
-class Check(Protocol):
-    def evaluate(self, df: "DataFrame", rule: DQRuleConfig) -> CheckResult: ...
-
-# src/core/contracts/masker.py
-@runtime_checkable
-class Masker(Protocol):
-    def mask(self, df: "DataFrame", rules: List[MaskingRuleConfig]) -> "DataFrame": ...
+```markdown
+## 5. Design
+- `typing.Protocol` + `@runtime_checkable` (structural typing) over ABCs.
+- `from __future__ import annotations` + `TYPE_CHECKING` import of `DataFrame` -> imports without `pyspark`.
+- One module per protocol + `__init__` re-export.
+- **Implementers:** `dataio.readers`->Reader; `dataio.load_strategy`->LoadStrategy; `dataio.checks`->Check; `dataio.maskers`->Masker; `framework/*`->Engine.
 ```
-`__init__.py` re-exports all of the above and sets `__version__ = "0.1.0"`.
 
-## 4. Inputs / Outputs
-- **Inputs:** config models from `core.metadata`; Spark `DataFrame`s; a `RunContext` for engines.
-- **Outputs:** DataFrames (`read`/`mask`), side-effecting writes (`apply`), `CheckResult` (`evaluate`), `RunResult` (`run`).
+### AFTER (With SOLID Principles)
 
+```markdown
 ## 5. Design
 - `typing.Protocol` + `@runtime_checkable` (structural typing) over ABCs.
 - `from __future__ import annotations` + `TYPE_CHECKING` import of `DataFrame` -> imports without `pyspark`.
@@ -231,7 +180,29 @@ engine = IngestionEngine(
 - New implementations: No contract changes needed (OCP)
 - Multi-customer: Same protocols, different implementations injected per customer
 - Config-driven: Factory pattern in engines selects implementations based on config
+```
 
+---
+
+## 🆕 Section 6: Implementation (UPDATED)
+
+### BEFORE (Current)
+
+```markdown
+## 6. Implementation logic & guidance
+**Logic / algorithm:** N/A - interface-only (method bodies are `...`; contracts contain no logic).
+
+Path: `src/core/contracts/{reader,load_strategy,engine,check,masker}.py` + `__init__.py`. Emit exactly the skeleton in section 3.
+**Constraints (hard):**
+- No logic in contracts - method bodies are `...` only.
+- No new dependencies; `pyspark` only under `TYPE_CHECKING`.
+- No `Any` in public signatures (except `RunContext.params`).
+- One module per protocol; no network/IO/state.
+```
+
+### AFTER (With SOLID Constraints)
+
+```markdown
 ## 6. Implementation logic & guidance
 **Logic / algorithm:** N/A - interface-only (method bodies are `...`; contracts contain no logic).
 
@@ -248,14 +219,22 @@ Path: `src/core/contracts/{reader,load_strategy,engine,check,masker}.py` + `__in
   - LSP: Implementations must be substitutable (enforced via mypy)
   - ISP: Segregated protocols; no fat interfaces
   - DIP: High-level code depends on these abstractions, not concretions
+```
 
-## 7. Validation, edge cases & versioning policy
-- `@runtime_checkable` verifies method **names**, not signatures - the `mypy` acceptance step enforces signatures.
-- Versioned via `core.contracts.__version__`. Adding/changing a method or value-object field is a **breaking change**: bump `contracts_version` (front-matter + `__version__`) and update all implementers in the same change. A new optional capability -> a **new Protocol**, never a mutation.
+---
 
-## 8. Error handling + ABC instrumentation
-Contracts carry no logic. **Rule:** every implementer instruments via the ABC SDK (audit/balance/cost) + structured logging - enforced by `standards.md` + the self-review gate, not by the contract.
+## 🆕 Section 9: Testing (UPDATED)
 
+### BEFORE (Current)
+
+```markdown
+## 9. Testing & acceptance
+Executable; see front-matter `acceptance` (import-without-pyspark, `pytest tests/core/test_contracts.py`, `mypy`). DONE only when all three pass.
+```
+
+### AFTER (With SOLID Testing)
+
+```markdown
 ## 9. Testing & acceptance
 Executable; see front-matter `acceptance` (import-without-pyspark, `pytest tests/core/test_contracts.py`, `mypy`). DONE only when all three pass.
 
@@ -323,7 +302,39 @@ def test_interface_segregation():
     profiler = DataProfiler(reader=CSVReader())
     assert profiler.profile(source) > 0
 ```
+```
 
+---
+
+## 🆕 Section 10: Examples (UPDATED)
+
+### BEFORE (Current)
+
+```markdown
+## 10. Examples
+**Conformant (one per protocol):**
+```python
+class AutoLoaderReader:          # Reader
+    def read(self, source, load): ...          # returns DataFrame
+class Scd2Strategy:              # LoadStrategy
+    def apply(self, df, target, load): ...     # writes; returns None
+class HashMasker:                # Masker
+    def mask(self, df, rules): return df
+assert isinstance(HashMasker(), Masker)        # structural match, no inheritance
+```
+**Counter-examples (DO NOT):**
+```python
+class BadMasker:
+    def apply_mask(self, df): ...   # wrong name -> isinstance(_, Masker) is False
+class SneakyMasker:
+    def mask(self, df): return df   # right name, wrong signature: passes isinstance
+                                    # but the mypy acceptance step FAILS it (missing 'rules')
+```
+```
+
+### AFTER (With SOLID Examples)
+
+```markdown
 ## 10. Examples
 
 **Conformant (one per protocol):**
@@ -431,13 +442,62 @@ engine = IngestionEngine(
 2. **Flexibility:** Swap implementations at runtime (strategy pattern)
 3. **Maintainability:** Changes to `Reader` don't affect `LoadStrategy` or `Check`
 4. **Extensibility:** Add new implementations without touching protocols or engines
-
-## 11. Regeneration contract
-`regeneration: fully-generated`. The entire `src/core/contracts/` package is generated from this spec and is safe to overwrite; it carries no hand edits. (Engines, by contrast, will be `scaffold-then-edit` - their specs will say so.)
-
-## 12. References
-`foundation/config-model-spec.md` (`core.metadata`) · `foundation/project-structure-spec.md` · `../../skills/_shared/standards.md`. Implemented by: `dataio/{readers,load-strategy,checks,maskers}` + `framework/engine-base` specs.
+```
 
 ---
 
-**SOLID Compliance:** ✅ Updated 2026-06-18 - Comprehensive SOLID principles application documented for protocol interfaces.
+## ✅ Sections 11-12: No Changes
+
+Sections 11-12 remain **exactly as-is**:
+* Section 11: Regeneration contract
+* Section 12: References
+
+---
+
+## Summary of Changes
+
+| Section | Change Type | What's Added |
+|---------|-------------|--------------|
+| 1-4 | ✅ No change | Keep as-is |
+| **5 (Design)** | 🆕 **Major addition** | SOLID Principles subsection (~150 lines) |
+| **6 (Implementation)** | 🆕 Small addition | SOLID constraints (~5 lines) |
+| 7-8 | ✅ No change | Keep as-is |
+| **9 (Testing)** | 🆕 Medium addition | SOLID testing (~40 lines) |
+| **10 (Examples)** | 🆕 Major addition | SOLID good vs. bad example (~60 lines) |
+| 11-12 | ✅ No change | Keep as-is |
+
+**Total new content:** ~255 lines  
+**Estimated effort:** 15-20 minutes per spec (includes reading, writing, reviewing)
+
+---
+
+## Why This Matters
+
+### For Code Generation
+* Genie Code prompts will include SOLID guidance from section 5
+* Generated code will follow extensibility patterns
+* Multi-customer customization built-in
+
+### For Framework Builder Bot
+* Bot reads specs to generate frameworks
+* SOLID principles → SOLID-compliant generated code
+* Extensibility patterns → customer-specific customizations easier
+
+### For Maintainability
+* Clear separation of concerns (SRP)
+* Easy to extend (OCP)
+* Testable via dependency injection (DIP)
+* Flexible strategy swapping (LSP)
+
+---
+
+## Next Steps
+
+1. **Review this example** — Understand what needs to be added
+2. **Apply to all 17 specs** — Use this as a template
+3. **Prioritize critical specs** — contracts-spec.md, config-model-spec.md, abc-sdk-spec.md first
+4. **Verify compliance** — Check that all SOLID sections are present
+
+---
+
+**Ready to proceed?** This example shows exactly what needs to be added to bring specs into compliance with updated templates.

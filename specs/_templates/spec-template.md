@@ -34,6 +34,7 @@
 - **Reliability:** [SLA, error tolerance, recovery]
 - **Security:** [Authentication, authorization, encryption]
 - **Maintainability:** [Code quality, documentation, testability]
+- **Extensibility:** [Customer customization, config-driven behavior]
 
 ---
 
@@ -48,6 +49,44 @@
 ### Components
 - **Component 1:** [Description]
 - **Component 2:** [Description]
+
+### SOLID Principles & Design Patterns
+
+**This component follows SOLID principles:**
+
+**Single Responsibility (SRP):**
+- Each class/module has ONE reason to change
+- [Describe how this component separates concerns]
+
+**Open/Closed (OCP):**
+- Open for extension, closed for modification
+- [Describe extension points - strategies, plugins, configs]
+
+**Liskov Substitution (LSP):**
+- Subclasses are substitutable for base classes
+- [Describe interface hierarchies and substitutability]
+
+**Interface Segregation (ISP):**
+- Many client-specific interfaces > one fat interface
+- [Describe how interfaces are segregated by client needs]
+
+**Dependency Inversion (DIP):**
+- Depend on abstractions, not concretions
+- [Describe dependency injection and abstraction usage]
+
+**Applicable Design Patterns:**
+
+1. **[Pattern Name]**: [Why it applies to this component]
+   - Example: Strategy Pattern for load strategies
+   - Example: Factory Pattern for reader creation
+   - Example: Template Method for engine workflows
+
+2. **[Pattern Name]**: [Why it applies]
+
+**Extensibility Strategy:**
+- Config-driven customization vs. code-driven
+- Customer-specific behavior injection points
+- Multi-tenant design considerations
 
 ### Data Flow
 1. [Step 1]
@@ -95,10 +134,26 @@ COMMENT '[table purpose]';
 1. [Step 1]
 2. [Step 2]
 
+**SOLID Compliance:**
+- SRP: [How this function has single responsibility]
+- DIP: [How dependencies are abstracted]
+
 ### Dependencies
 - **External libraries:** [List packages]
 - **Databricks features:** [Lakeflow, Unity Catalog, etc.]
 - **Internal modules:** [Other SDK components]
+
+**Dependency Injection:**
+```python
+# Example showing DIP
+def __init__(
+    self,
+    dependency1: AbstractInterface,  # Not concrete implementation
+    dependency2: AbstractInterface
+):
+    self._dep1 = dependency1
+    self._dep2 = dependency2
+```
 
 ---
 
@@ -117,7 +172,7 @@ COMMENT '[table purpose]';
 ### Error Scenarios
 
 | Error | Cause | Message | Recovery Action |
-|-------|-------|---------|-----------------|
+|-------|-------|---------|--------------------|
 | [ErrorType1] | [What triggers it] | "[Exact message]" | [How to recover] |
 | [ErrorType2] | [What triggers it] | "[Exact message]" | [How to recover] |
 
@@ -129,6 +184,7 @@ COMMENT '[table purpose]';
 - [ ] [Criterion 1]
 - [ ] [Criterion 2]
 - [ ] [Criterion 3]
+- [ ] SOLID compliance verified (SRP, OCP, LSP, ISP, DIP)
 
 ### Test Scenarios
 
@@ -141,6 +197,28 @@ COMMENT '[table purpose]';
 **Given:** [Initial state]  
 **When:** [Action]  
 **Then:** [Expected error]
+
+### SOLID Testing
+
+**SRP Tests:**
+- Each test class tests ONE component/responsibility
+- Tests verify single reason to change
+
+**OCP Tests:**
+- Tests verify extension without modification
+- New strategies/behaviors work without changing base
+
+**LSP Tests:**
+- Base class tests run against all subclasses
+- Subclasses are substitutable for base
+
+**ISP Tests:**
+- Tests verify clients only depend on methods they use
+- No dependencies on unused interface methods
+
+**DIP Tests:**
+- Tests use mocks/stubs for dependencies
+- Tests verify abstraction boundaries
 
 ---
 
@@ -162,6 +240,47 @@ COMMENT '[table purpose]';
 [Expected output]
 ```
 
+### SOLID Example: Good vs. Bad
+
+**BAD (Violates SOLID):**
+```python
+# Example showing anti-patterns
+class GodClass:
+    def do_everything(self):
+        # Reads, validates, transforms, writes, logs (violates SRP)
+        # Hard-coded dependencies (violates DIP)
+        pass
+```
+
+**GOOD (Follows SOLID):**
+```python
+# Example showing proper separation
+class Reader:
+    """Single responsibility: reading data"""
+    def read(self, source: str) -> DataFrame:
+        pass
+
+class Validator:
+    """Single responsibility: validation"""
+    def validate(self, df: DataFrame, schema: Schema) -> bool:
+        pass
+
+class Processor:
+    """Orchestrates with injected dependencies (DIP)"""
+    def __init__(
+        self,
+        reader: Reader,  # Abstraction, not concrete
+        validator: Validator  # Abstraction, not concrete
+    ):
+        self._reader = reader
+        self._validator = validator
+    
+    def process(self, source: str):
+        df = self._reader.read(source)
+        self._validator.validate(df, schema)
+        return df
+```
+
 ---
 
 ## 10. References
@@ -170,6 +289,8 @@ COMMENT '[table purpose]';
 - [Link 2 - Databricks docs]
 - [Link 3 - ADR or decision log]
 - [Link 4 - Backlog task]
+- SOLID Principles: Robert C. Martin (Clean Code, Clean Architecture)
+- Design Patterns: Gang of Four (GoF)
 
 ---
 
