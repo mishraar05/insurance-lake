@@ -26,4 +26,4 @@ Workflow orchestration, dependencies, and deployment.
 - HARM-040: Dependency resolution
 
 ## Note
-⚠️ **CI/CD is Paid edition only** - requires Asset Bundles
+CI/CD requires Asset Bundles

@@ -7,7 +7,6 @@ maturity: draft
 status: exemplar
 owner_role: ML/AI Engineer
 runtime: genie-code
-fe_ready: true
 build_order: 3
 depends_on: ['authoring.data-profiling', 'control.confidence-scoring', 'domain.pc-acord-canonical']
 backlog_ids: ['AGENT-010', 'FND-003']
@@ -24,7 +23,7 @@ tools: ['genie-code', 'config-loader', 'abc-sdk']
 Use when onboarding a new source feed. Given a source, the skill profiles it and drafts the ingestion + harmonization config rows the framework needs - turning a multi-hour manual task into a reviewed draft.
 
 ## Inputs (contract)
-- `source_connection` - connection/reference to the source (on Free Edition: a synthetic dataset in cloud storage).
+- `source_connection` - connection/reference to the source (a synthetic dataset for the PoC, or the live source).
 - `profile_report` - from [[authoring.data-profiling]].
 - `target_layer` - bronze and the intended silver/gold targets.
 

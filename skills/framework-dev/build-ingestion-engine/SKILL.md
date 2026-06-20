@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: Data Engineer
 runtime: genie-code
-fe_ready: true
 build_order: 1
 depends_on: ['framework-dev.build-abc-sdk', 'framework-dev.build-config-model']
 backlog_ids: ['ING-001', 'ING-002', 'ING-010', 'ING-012', 'ING-020', 'ING-030', 'ING-031', 'ING-052']

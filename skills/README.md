@@ -34,7 +34,7 @@ Markdown-first, Databricks-targeted skills used to **develop the P&C metadata-dr
 | Skill | Category | Runtime | FE | Backlog | Depends on |
 |---|---|---|---|---|---|
 | `build-dq-engine` | framework-dev | genie-code | yes | DQ-001, DQ-002, DQ-010, DQ-011, DQ-030, DQ-040 | framework-dev.build-harmonization-engine |
-| `build-masking-engine` | framework-dev | genie-code | paid | MASK-001, MASK-002, MASK-010, MASK-020, MASK-021 | framework-dev.build-harmonization-engine |
+| `build-masking-engine` | framework-dev | genie-code | - | MASK-001, MASK-002, MASK-010, MASK-020, MASK-021 | framework-dev.build-harmonization-engine |
 | `build-reconciliation-engine` | framework-dev | genie-code | yes | REC-001, REC-002, REC-010, REC-011, REC-020 | framework-dev.build-harmonization-engine |
 
 ### Wave 3 - Agentic authoring
@@ -45,7 +45,7 @@ Markdown-first, Databricks-targeted skills used to **develop the P&C metadata-dr
 | `doc-generation` | authoring | genie-code | yes | AGENT-017 | authoring.metadata-population |
 | `dq-rule-suggestion` | authoring | genie-code | yes | AGENT-013, DQ-002 | authoring.data-profiling |
 | `metadata-population` | authoring | genie-code | yes | AGENT-010, FND-003 | authoring.data-profiling, control.confidence-scoring, domain.pc-acord-canonical |
-| `pii-masking-classification` | authoring | genie-code | paid | AGENT-015, MASK-002 | authoring.data-profiling |
+| `pii-masking-classification` | authoring | genie-code | - | AGENT-015, MASK-002 | authoring.data-profiling |
 | `recon-rule-gen` | authoring | genie-code | yes | AGENT-014, REC-002 | authoring.metadata-population |
 | `source-target-mapping` | authoring | genie-code | yes | AGENT-011, HARM-020 | authoring.metadata-population, domain.pc-acord-canonical |
 | `test-synthetic-data` | authoring | genie-code | yes | AGENT-016, ING-041 | authoring.metadata-population |
@@ -58,19 +58,19 @@ Markdown-first, Databricks-targeted skills used to **develop the P&C metadata-dr
 |---|---|---|---|---|---|
 | `build-finops` | framework-dev | genie-code | yes | FINOPS-001, FINOPS-002, FINOPS-010, FINOPS-020 | control.cost-tracking |
 | `build-observability` | framework-dev | genie-code | yes | OBS-001, OBS-010, OBS-011, OBS-020 | framework-dev.build-abc-sdk |
-| `impact-lineage` | interaction | agent-bricks | paid | AGENT-032 | interaction.ops-qa |
+| `impact-lineage` | interaction | agent-bricks | - | AGENT-032 | interaction.ops-qa |
 | `nl-pipeline-authoring` | interaction | genie-code | yes | AGENT-030 | authoring.metadata-population |
 | `ops-qa` | interaction | genie-space | yes | AGENT-031 | control.logging |
-| `anomaly-drift` | runtime | agent-bricks | paid | AGENT-022, ING-050 | control.logging |
-| `failure-triage` | runtime | agent-bricks | paid | AGENT-020 | control.logging |
-| `self-healing` | runtime | agent-bricks | paid | AGENT-021 | runtime.failure-triage |
+| `anomaly-drift` | runtime | agent-bricks | - | AGENT-022, ING-050 | control.logging |
+| `failure-triage` | runtime | agent-bricks | - | AGENT-020 | control.logging |
+| `self-healing` | runtime | agent-bricks | - | AGENT-021 | runtime.failure-triage |
 
 ### Wave 5 - Delivery
 
 | Skill | Category | Runtime | FE | Backlog | Depends on |
 |---|---|---|---|---|---|
-| `build-cicd` | framework-dev | genie-code | paid | DEVOPS-001, DEVOPS-010, DEVOPS-012 | framework-dev.build-orchestration |
+| `build-cicd` | framework-dev | genie-code | - | DEVOPS-001, DEVOPS-010, DEVOPS-012 | framework-dev.build-orchestration |
 | `framework-build` | orchestration | agent-bricks | yes | BENCH-010 | framework-dev.build-abc-sdk, framework-dev.build-ingestion-engine, framework-dev.build-harmonization-engine |
-| `router` | orchestration | agent-bricks | paid | AGENT-003 | orchestration.framework-build, orchestration.pipeline-build, control.self-review, control.confidence-scoring |
+| `router` | orchestration | agent-bricks | - | AGENT-003 | orchestration.framework-build, orchestration.pipeline-build, control.self-review, control.confidence-scoring |
 
-> FE = runnable on Databricks Free Edition for the PoC benchmark; **paid** = needs the paid workspace.
+> All skills target Databricks (Premium).

@@ -43,7 +43,7 @@
 │   ├── reconciliation-engine-spec.md  # REC-001, REC-002
 │   └── recon-patterns-spec.md       # REC-010, REC-011, REC-020
 │
-├── masking/                         # MASK - PII/PHI (Wave 2, Paid only)
+├── masking/                         # MASK - PII/PHI (Wave 2)
 │   ├── README.md
 │   ├── masking-engine-spec.md       # MASK-001, MASK-002
 │   ├── pii-classification-spec.md   # MASK-010
@@ -73,7 +73,7 @@
     ├── README.md
     ├── workflow-orchestration-spec.md    # DEVOPS-010
     ├── pipeline-dependencies-spec.md     # HARM-040
-    └── cicd-spec.md                      # DEVOPS-001, DEVOPS-012 (Paid only)
+    └── cicd-spec.md                      # DEVOPS-001, DEVOPS-012
 
 ═══════════════════════════════════════════════════════════════════════════
 
@@ -132,7 +132,7 @@ WORKFLOW:
 • Start with the MAIN specs/README.md for workflow guidance
 • Use _templates/ for consistency across specs
 • Each domain has its own README explaining scope & backlog tasks
-• Specs are PORTABLE IP - they work on Free & Paid editions
+• Specs are PORTABLE IP
 • Write for Genie Code: be clear, complete, include examples
 • Link dependencies explicitly (other specs, tables, functions)
 

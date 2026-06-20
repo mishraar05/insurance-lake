@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: ML/AI Engineer
 runtime: agent-bricks
-fe_ready: false
 build_order: 4
 depends_on: ['interaction.ops-qa']
 backlog_ids: ['AGENT-032']

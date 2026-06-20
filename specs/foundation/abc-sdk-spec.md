@@ -2,7 +2,7 @@
 
 **Spec ID:** FND-010, FND-011, FND-013, FND-014  
 **Title:** ABC SDK - Modernization of Audit/Balance/Control Framework  
-**Author:** InsureLake Framework Team  
+**Owner:** EY  
 **Date:** 2026-06-18  
 **Status:** In Progress  
 **Depends On:** None (Foundation component)

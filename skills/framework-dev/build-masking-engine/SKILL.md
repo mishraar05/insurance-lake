@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: Data Engineer
 runtime: genie-code
-fe_ready: false
 build_order: 2
 depends_on: ['framework-dev.build-harmonization-engine']
 backlog_ids: ['MASK-001', 'MASK-002', 'MASK-010', 'MASK-020', 'MASK-021']

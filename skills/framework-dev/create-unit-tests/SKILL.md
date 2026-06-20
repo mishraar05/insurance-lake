@@ -7,7 +7,6 @@ maturity: exemplar
 status: active
 owner_role: Data Engineer
 runtime: genie-code
-fe_ready: true
 build_order: 0
 depends_on: []
 backlog_ids: ['FND-013', 'TST-001', 'TST-002']

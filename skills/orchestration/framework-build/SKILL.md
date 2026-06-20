@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: Architect
 runtime: agent-bricks
-fe_ready: true
 build_order: 5
 depends_on: ['framework-dev.build-abc-sdk', 'framework-dev.build-ingestion-engine', 'framework-dev.build-harmonization-engine']
 backlog_ids: ['BENCH-010']

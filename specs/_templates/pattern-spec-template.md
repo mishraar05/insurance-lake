@@ -2,7 +2,7 @@
 
 **Spec ID:** [EPIC-###]  
 **Title:** [Pattern Name] Pattern  
-**Author:** [Your Name]  
+**Owner:** EY  
 **Date:** [YYYY-MM-DD]  
 **Status:** Draft | Review | Approved | Implemented  
 **Used By:** [Engines that use this pattern]
@@ -46,7 +46,7 @@ AS
   [pattern SQL];
 ```
 
-### Non-Declarative (Structured Streaming)
+### Non-Declarative (classic batch PySpark)
 
 ```python
 # Python code for non-declarative implementation

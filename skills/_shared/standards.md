@@ -6,7 +6,7 @@
 - Secrets via Databricks secrets only.
 - PII never logged; masking handled by the masking engine / classification skill.
 - Every run calls the ABC SDK (audit + balance + cost).
-- Declarative path = Lakeflow Declarative Pipelines; non-declarative = Structured Streaming/batch + MERGE.
+- Declarative path = Lakeflow Declarative Pipelines; non-declarative = classic batch PySpark + MERGE.
 - Packaging: workspace source deployed via Asset Bundles (no wheels).
 - Naming: snake_case tables/columns; component prefixes match backlog IDs.
 

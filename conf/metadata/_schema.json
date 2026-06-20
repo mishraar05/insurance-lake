@@ -1,0 +1,512 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "SourceConfig": {
+      "type": "object",
+      "properties": {
+        "source_id": {
+          "type": "string"
+        },
+        "source_name": {
+          "type": "string"
+        },
+        "source_type": {
+          "type": "string"
+        },
+        "source_system": {
+          "type": "string"
+        },
+        "connection_string": {
+          "type": "string"
+        },
+        "file_format": {
+          "type": "string"
+        },
+        "schema_location": {
+          "type": "string"
+        },
+        "credential_scope": {
+          "type": "string"
+        },
+        "credential_key": {
+          "type": "string"
+        },
+        "business_domain": {
+          "type": "string"
+        },
+        "pii_flag": {
+          "type": "boolean"
+        },
+        "data_classification": {
+          "type": "string"
+        },
+        "sla_hours": {
+          "type": "integer"
+        },
+        "active_flag": {
+          "type": "boolean"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "created_ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_by": {
+          "type": "string"
+        },
+        "updated_ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "source_id",
+        "source_name",
+        "source_type",
+        "source_system"
+      ],
+      "additionalProperties": false
+    },
+    "TargetConfig": {
+      "type": "object",
+      "properties": {
+        "target_id": {
+          "type": "string"
+        },
+        "target_name": {
+          "type": "string"
+        },
+        "catalog_name": {
+          "type": "string"
+        },
+        "schema_name": {
+          "type": "string"
+        },
+        "table_name": {
+          "type": "string"
+        },
+        "layer": {
+          "type": "string"
+        },
+        "table_type": {
+          "type": "string"
+        },
+        "format": {
+          "type": "string"
+        },
+        "partition_columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "liquid_clustering_columns": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "primary_key": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "acord_entity": {
+          "type": "string"
+        },
+        "retention_days": {
+          "type": "integer"
+        },
+        "enable_cdf": {
+          "type": "boolean"
+        },
+        "active_flag": {
+          "type": "boolean"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "created_ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_by": {
+          "type": "string"
+        },
+        "updated_ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "target_id",
+        "target_name",
+        "catalog_name",
+        "schema_name",
+        "table_name",
+        "layer",
+        "table_type"
+      ],
+      "additionalProperties": false
+    },
+    "LoadConfig": {
+      "type": "object",
+      "properties": {
+        "load_id": {
+          "type": "string"
+        },
+        "load_name": {
+          "type": "string"
+        },
+        "source_id": {
+          "type": "string"
+        },
+        "target_id": {
+          "type": "string"
+        },
+        "load_type": {
+          "type": "string"
+        },
+        "load_pattern": {
+          "type": "string"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "watermark_column": {
+          "type": "string"
+        },
+        "watermark_type": {
+          "type": "string"
+        },
+        "checkpoint_location": {
+          "type": "string"
+        },
+        "trigger_interval": {
+          "type": "string"
+        },
+        "merge_keys": {
+          "type": "string"
+        },
+        "autoloader_options": {
+          "type": "object"
+        },
+        "schedule_cron": {
+          "type": "string"
+        },
+        "depends_on": {
+          "type": "string"
+        },
+        "active_flag": {
+          "type": "boolean"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "created_ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_by": {
+          "type": "string"
+        },
+        "updated_ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "load_id",
+        "load_name",
+        "source_id",
+        "target_id",
+        "load_type",
+        "load_pattern",
+        "engine"
+      ],
+      "additionalProperties": false
+    },
+    "TransformConfig": {
+      "type": "object",
+      "properties": {
+        "transform_id": {
+          "type": "string"
+        },
+        "transform_name": {
+          "type": "string"
+        },
+        "source_target_id": {
+          "type": "string"
+        },
+        "destination_target_id": {
+          "type": "string"
+        },
+        "transform_type": {
+          "type": "string"
+        },
+        "transform_sql": {
+          "type": "string"
+        },
+        "transform_python": {
+          "type": "string"
+        },
+        "acord_mapping_template": {
+          "type": "string"
+        },
+        "scd_type": {
+          "type": "string"
+        },
+        "scd_key_columns": {
+          "type": "string"
+        },
+        "scd_timestamp_column": {
+          "type": "string"
+        },
+        "engine": {
+          "type": "string"
+        },
+        "dependencies": {
+          "type": "string"
+        },
+        "active_flag": {
+          "type": "boolean"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "created_ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_by": {
+          "type": "string"
+        },
+        "updated_ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "transform_id",
+        "transform_name",
+        "source_target_id",
+        "destination_target_id",
+        "transform_type"
+      ],
+      "additionalProperties": false
+    },
+    "DQRuleConfig": {
+      "type": "object",
+      "properties": {
+        "dq_rule_id": {
+          "type": "string"
+        },
+        "rule_name": {
+          "type": "string"
+        },
+        "target_id": {
+          "type": "string"
+        },
+        "rule_type": {
+          "type": "string"
+        },
+        "column_name": {
+          "type": "string"
+        },
+        "rule_expression": {
+          "type": "string"
+        },
+        "threshold_percent": {
+          "type": "number"
+        },
+        "on_failure": {
+          "type": "string"
+        },
+        "active_flag": {
+          "type": "boolean"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "created_ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_by": {
+          "type": "string"
+        },
+        "updated_ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "dq_rule_id",
+        "rule_name",
+        "target_id",
+        "rule_type"
+      ],
+      "additionalProperties": false
+    },
+    "MaskingRuleConfig": {
+      "type": "object",
+      "properties": {
+        "masking_rule_id": {
+          "type": "string"
+        },
+        "rule_name": {
+          "type": "string"
+        },
+        "target_id": {
+          "type": "string"
+        },
+        "column_name": {
+          "type": "string"
+        },
+        "classification": {
+          "type": "string"
+        },
+        "technique": {
+          "type": "string"
+        },
+        "mask_function": {
+          "type": "string"
+        },
+        "reversible_flag": {
+          "type": "boolean"
+        },
+        "active_flag": {
+          "type": "boolean"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "created_ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_by": {
+          "type": "string"
+        },
+        "updated_ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "masking_rule_id",
+        "rule_name",
+        "target_id",
+        "column_name",
+        "classification",
+        "technique"
+      ],
+      "additionalProperties": false
+    },
+    "ReconRuleConfig": {
+      "type": "object",
+      "properties": {
+        "recon_rule_id": {
+          "type": "string"
+        },
+        "rule_name": {
+          "type": "string"
+        },
+        "recon_type": {
+          "type": "string"
+        },
+        "load_id": {
+          "type": "string"
+        },
+        "target_id": {
+          "type": "string"
+        },
+        "source_ref": {
+          "type": "string"
+        },
+        "target_ref": {
+          "type": "string"
+        },
+        "measure_column": {
+          "type": "string"
+        },
+        "tolerance_percent": {
+          "type": "number"
+        },
+        "on_break": {
+          "type": "string"
+        },
+        "active_flag": {
+          "type": "boolean"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "created_ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_by": {
+          "type": "string"
+        },
+        "updated_ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "recon_rule_id",
+        "rule_name",
+        "recon_type"
+      ],
+      "additionalProperties": false
+    },
+    "DependencyConfig": {
+      "type": "object",
+      "properties": {
+        "dependency_id": {
+          "type": "string"
+        },
+        "object_type": {
+          "type": "string"
+        },
+        "object_id": {
+          "type": "string"
+        },
+        "depends_on_id": {
+          "type": "string"
+        },
+        "dependency_type": {
+          "type": "string"
+        },
+        "active_flag": {
+          "type": "boolean"
+        },
+        "created_by": {
+          "type": "string"
+        },
+        "created_ts": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updated_by": {
+          "type": "string"
+        },
+        "updated_ts": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "dependency_id",
+        "object_type",
+        "object_id",
+        "depends_on_id"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

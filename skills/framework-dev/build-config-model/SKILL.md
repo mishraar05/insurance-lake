@@ -7,7 +7,6 @@ maturity: draft
 status: active
 owner_role: Data Engineer
 runtime: genie-code
-fe_ready: true
 build_order: 0
 depends_on: ['domain.pc-acord-canonical']
 backlog_ids: ['FND-001', 'FND-002', 'FND-003', 'FND-005']

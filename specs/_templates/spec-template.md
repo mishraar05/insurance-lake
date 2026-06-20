@@ -2,7 +2,7 @@
 
 **Spec ID:** [EPIC-###]  
 **Title:** [Component Name]  
-**Author:** [Your Name]  
+**Owner:** EY  
 **Date:** [YYYY-MM-DD]  
 **Status:** Draft | Review | Approved | Implemented  
 **Depends On:** [List spec IDs or "None"]

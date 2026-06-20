@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: Data Engineer
 runtime: genie-code
-fe_ready: true
 build_order: 4
 depends_on: ['framework-dev.build-abc-sdk']
 backlog_ids: ['OBS-001', 'OBS-010', 'OBS-011', 'OBS-020']

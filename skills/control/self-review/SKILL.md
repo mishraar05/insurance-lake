@@ -7,7 +7,6 @@ maturity: draft
 status: exemplar
 owner_role: ML/AI Engineer
 runtime: agent-bricks
-fe_ready: true
 build_order: 0
 depends_on: []
 backlog_ids: ['FND-020']

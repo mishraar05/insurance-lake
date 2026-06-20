@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: Architect
 runtime: agent-bricks
-fe_ready: true
 build_order: 3
 depends_on: ['authoring.metadata-population', 'authoring.transformation-codegen', 'authoring.dq-rule-suggestion']
 backlog_ids: ['AGENT-002']

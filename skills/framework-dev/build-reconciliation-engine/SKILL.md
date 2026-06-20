@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: Data Engineer
 runtime: genie-code
-fe_ready: true
 build_order: 2
 depends_on: ['framework-dev.build-harmonization-engine']
 backlog_ids: ['REC-001', 'REC-002', 'REC-010', 'REC-011', 'REC-020']

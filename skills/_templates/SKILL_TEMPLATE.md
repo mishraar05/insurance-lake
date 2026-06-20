@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: <role>
 runtime: <genie-code|agent-bricks|genie-space|notebook>
-fe_ready: <true|false>
 build_order: <0-5>
 depends_on: [<dep ids>]
 backlog_ids: [<TASK-IDs>]

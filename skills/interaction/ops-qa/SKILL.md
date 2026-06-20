@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: ML/AI Engineer
 runtime: genie-space
-fe_ready: true
 build_order: 4
 depends_on: ['control.logging']
 backlog_ids: ['AGENT-031']

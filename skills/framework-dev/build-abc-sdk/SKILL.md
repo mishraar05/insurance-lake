@@ -7,7 +7,6 @@ maturity: draft
 status: exemplar
 owner_role: Data Engineer
 runtime: genie-code
-fe_ready: true
 build_order: 0
 depends_on: ['framework-dev.build-config-model']
 backlog_ids: ['FND-010', 'FND-011', 'FND-013', 'FND-014']

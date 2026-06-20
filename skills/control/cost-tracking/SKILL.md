@@ -7,7 +7,6 @@ maturity: draft
 status: active
 owner_role: Data Engineer
 runtime: notebook
-fe_ready: true
 build_order: 0
 depends_on: []
 backlog_ids: ['FND-022']
@@ -30,7 +29,7 @@ Wrap every framework/skill run to capture consumption (DBU / time / Genie sessio
 ## Procedure (Genie-Code-ready steps)
 1. On run start, record start time + compute identifiers (via ABC `start_run`).
 2. On run end, gather consumption: run duration, SQL-warehouse DBU-time, Genie Code serverless DBUs (tag `databricks-product: genie`), token counts if available.
-3. On **paid**, join to `system.billing.usage` by tag/SKU for billable usage; on **Free Edition**, capture raw consumption only (DBU-seconds, durations) - no dollar amounts.
+3. Join to `system.billing.usage` by tag/SKU for billable usage; capture raw consumption (DBU-seconds, durations).
 4. Attribute consumption to unit keys (per feed / transform / Genie generation / run).
 5. Write via ABC `log_cost(run_id, consumption)`.
 
@@ -38,7 +37,7 @@ Wrap every framework/skill run to capture consumption (DBU / time / Genie sessio
 - `consumption_metrics` - DBUs, durations, Genie sessions, tokens + attribution keys.
 
 ## Guardrails & policy
-- No dollar figures on Free Edition (consumption only; $ is modeled later by build-finops using list prices).
+- Consumption metrics captured; $ is modeled by build-finops using list prices.
 - Never fail the parent run on a cost-capture error - log and continue.
 - Respect the `databricks-product: genie` tag and Unity AI Gateway budgets.
 
@@ -49,7 +48,7 @@ Wrap every framework/skill run to capture consumption (DBU / time / Genie sessio
 - A `build-ingestion-engine` Genie Code run logs Genie serverless DBU-seconds + warehouse DBU-time, keyed to the component and feed.
 
 ## Acceptance / eval
-- Every run has a cost record in ABC; on paid, consumption reconciles with `system.billing.usage`; build-finops can compute a unit cost from it.
+- Every run has a cost record in ABC; consumption reconciles with `system.billing.usage`; build-finops can compute a unit cost from it.
 
 ## References
 - Backlog: FND-022 (depends on the ABC SDK, FND-011)

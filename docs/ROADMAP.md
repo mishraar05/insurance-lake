@@ -1,6 +1,6 @@
 # InsureLake - Refined Build Roadmap
 
-Status: active · 2026-06-18 · Owner: Clean
+Status: active · 2026-06-18 · Owner: EY
 Companions: `../PROJECT_CONTEXT.md` (context) · `../skills/_shared/project-structure.md` (layout).
 
 ## Strategy (how we build)
@@ -8,7 +8,7 @@ Companions: `../PROJECT_CONTEXT.md` (context) · `../skills/_shared/project-stru
 - **Spec-first, structure-pinned:** spec -> Genie Code generates into the mapped path -> test -> benchmark.
 - **Single source of truth:** `core/metadata` dataclasses generate DDL + JSON-schema (`scripts/codegen`).
 - **Execution mode built once** (`framework/_base`), reused by every engine.
-- **Continuous benchmark on Free Edition;** the scorecard gates the paid scale-up.
+- **Continuous benchmark (PoC);** the scorecard gates the full build.
 - **Agentic execution layer is the primary UX:** chat -> spec -> skills/Genie -> pipeline (control plane only; Spark/DLT runs the data).
 
 ## Quality Gate - Definition of Done for EVERY build step
@@ -19,7 +19,7 @@ A step is DONE only when ALL nine pass:
 4. **Generation** - Genie Code output passes self-review (idempotent, no `SELECT *`, secrets via scopes, no PII in logs, ABC hooks present) and compiles.
 5. **Tests** - unit tests via `create-unit-tests`, >80% coverage, all green; integration test where Spark is required.
 6. **Instrumentation** - calls the ABC SDK (audit/balance/cost) + structured logging with a trace id.
-7. **Benchmark** - functional correctness vs golden outputs + consumption recorded (Free-Edition slice).
+7. **Benchmark** - functional correctness vs golden outputs + consumption recorded (slice).
 8. **Govern** - confidence-scored; HITL approved; agent actions audited to ABC.
 9. **Integration** - `databricks bundle validate` passes; smoke test on the target.
 
@@ -44,9 +44,9 @@ No step advances to the next until its gate is green. This is the quality contra
 
 ### Phase 3 - Wire & benchmark
 - 3.1 `runners/jobs` + `runners/pipelines` + `resources/` (DAB) for the synthetic policy feed.
-- 3.2 Free-Edition benchmark: thin slice (ingest -> harmonize -> dq -> recon -> mask) -> scorecard (fidelity + correctness + consumption).
+- 3.2 benchmark: thin slice (ingest -> harmonize -> dq -> recon -> mask) -> scorecard (fidelity + correctness + consumption).
 
-### Phase 4 - Scale & hardening (paid)
+### Phase 4 - Scale & hardening
 - 4.1 CI/CD (Asset Bundles + tests), env promotion, secrets.
 - 4.2 observability + finops dashboards + customer cost-estimation model.
 
@@ -64,8 +64,8 @@ Quality for Track A: every agent-produced spec and every generated pipeline must
 ## Dependency summary
 `core -> dataio/services -> framework -> runners/agents`; Track A: A0/A1 parallel early, A2-A4 after engines.
 
-## Free vs Paid
-Foundation + primitives + a thin engine slice + the benchmark run on Free Edition (Genie Code + a light sequencer). Full Supervisor chatbot, model serving, scale, and CI/CD are paid.
+## Environment
+Everything targets Databricks (Premium). The framework + primitives + a thin engine slice are built and benchmarked first (Genie Code); the full Supervisor chatbot, scale, and CI/CD follow.
 
 ## Status (2026-06-18)
 Done: structure finalized; FND-003 config loader (in `core/config`); Wave 0 specs (config-model, control-tables-ddl, abc-sdk, benchmark-plan, project-structure); control + foundation skills authored. Next executable: Phase 0 step 0.1 (apply revised structure).

@@ -7,7 +7,6 @@ maturity: draft
 status: exemplar
 owner_role: Architect
 runtime: agent-bricks
-fe_ready: false
 build_order: 5
 depends_on: ['orchestration.framework-build', 'orchestration.pipeline-build', 'control.self-review', 'control.confidence-scoring']
 backlog_ids: ['AGENT-003']
@@ -25,14 +24,14 @@ The single front door for the framework-creation process and, later, for onboard
 
 ## Inputs (contract)
 - `intent` - NL or structured request, e.g. "stand up the framework", "build Wave 1", "build the ingestion engine", "onboard the policy feed", "why did the claims run fail last night".
-- `skill_registry` - the front-matter of all skills (category, build_order, depends_on, backlog_ids, fe_ready).
+- `skill_registry` - the front-matter of all skills (category, build_order, depends_on, backlog_ids).
 - `run_ledger` - ABC-backed state of what has already been built / deployed.
 
 ## Procedure (Genie-Code-ready steps)
 1. Classify `intent` and pick a route: BUILD -> framework-build (framework-dev/*), ONBOARD -> pipeline-build (authoring/*), OPERATE -> runtime/*, ASK -> interaction/*.
 2. Select the candidate skills from `skill_registry`; build a dependency graph from `depends_on` + `build_order`.
 3. Reconcile with `run_ledger`: drop completed steps; produce the ordered, minimal execution plan.
-4. For each step: check `fe_ready` vs the target edition; invoke the worker (Genie Code for codegen, Genie space for Q&A, agent endpoint / UC function for control & authoring skills).
+4. For each step: invoke the worker (Genie Code for codegen, Genie space for Q&A, agent endpoint / UC function for control & authoring skills).
 5. Govern loop: run control.self-review then control.confidence-scoring; if confidence < threshold OR the step writes a managed asset, open an HITL gate.
 6. On approval, execute; capture outputs; log audit + cost to ABC via the SDK; update `run_ledger`.
 7. Synthesize a status report (done / next / blocked) and emit benchmark metrics.
@@ -45,7 +44,7 @@ The single front door for the framework-creation process and, later, for onboard
 ## Guardrails & policy
 - Control plane only; never transform data rows.
 - No managed-asset write without HITL approval.
-- Respect `fe_ready`: on Free Edition route through the Genie-Code sequencer stand-in and defer paid-only workers.
+- Route build steps through Genie Code; defer steps whose capabilities are not yet provisioned.
 - Every routed step is logged to ABC (audit + cost) under one trace id.
 
 ## Govern hooks
@@ -56,11 +55,11 @@ The single front door for the framework-creation process and, later, for onboard
 - Intent "onboard policy feed" -> route ONBOARD -> pipeline-build -> data-profiling -> metadata-population -> ... -> doc-generation.
 
 ## Acceptance / eval
-- For a target wave the router produces a correct topological plan that matches the backlog dependencies, executes the FE-ready slice end to end, and the ledger reflects completion (feeds the BENCH scorecard).
+- For a target wave the router produces a correct topological plan that matches the backlog dependencies, executes the slice end to end, and the ledger reflects completion (feeds the BENCH scorecard).
 
 ## Runtime
-- Target: Agent Bricks Supervisor Agent (paid, Unity-Catalog governed); workers = Genie spaces / agent endpoints / UC functions / Genie Code.
-- Free-Edition benchmark: a lightweight Genie-Code sequencer that runs the same plan over `fe_ready` skills.
+- Target: Agent Bricks Supervisor Agent (Unity-Catalog governed); workers = Genie spaces / agent endpoints / UC functions / Genie Code.
+- Benchmark: a lightweight Genie-Code sequencer that runs the same plan over the skills.
 
 ## References
 - Backlog: AGENT-003 (depends AGENT-002)

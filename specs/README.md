@@ -5,7 +5,7 @@
 ## 🎯 Principles
 
 1. **Portable IP** - Specs are the source of truth, not the generated code
-2. **Edition-neutral** - No Free Edition limitations baked into specs
+2. **Portable** - no environment-specific limitations baked into specs
 3. **Genie-ready** - Written for AI consumption (clear, complete, structured)
 4. **Self-contained** - Each spec has all information needed to build its component
 
@@ -52,7 +52,7 @@ Each spec follows this structure:
 
 ## 🚀 Workflow
 
-### 1. Author Spec (Claude Cowork or Genie)
+### 1. Author Spec (Genie / workspace)
 ```
 Write spec in markdown → Review → Approve → Commit
 ```
@@ -99,7 +99,7 @@ Use templates in `_templates/` for consistency:
 1. **Be specific** - Avoid ambiguity; Genie needs clear instructions
 2. **Include examples** - Show sample inputs/outputs, SQL, schemas
 3. **Document constraints** - List all validation rules, limits, edge cases
-4. **Think portable** - Specs should work on both Free and Paid editions
+4. **Think portable** - Specs should work across environments
 5. **Link dependencies** - Reference other specs/tables/functions clearly
 6. **Test acceptance** - Write testable acceptance criteria
 

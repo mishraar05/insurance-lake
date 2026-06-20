@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: FinOps/Analyst
 runtime: genie-code
-fe_ready: true
 build_order: 4
 depends_on: ['control.cost-tracking']
 backlog_ids: ['FINOPS-001', 'FINOPS-002', 'FINOPS-010', 'FINOPS-020']

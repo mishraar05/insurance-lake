@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: Platform/DevOps
 runtime: genie-code
-fe_ready: false
 build_order: 5
 depends_on: ['framework-dev.build-orchestration']
 backlog_ids: ['DEVOPS-001', 'DEVOPS-010', 'DEVOPS-012']

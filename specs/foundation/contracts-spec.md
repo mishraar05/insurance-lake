@@ -1,6 +1,7 @@
 ---
 id: foundation.contracts
 title: Core Contracts (Typed Interfaces)
+owner: EY
 status: active
 contracts_version: 0.1.0
 target_path: src/core/contracts/
@@ -97,7 +98,9 @@ class Masker(Protocol):
 - One module per protocol + `__init__` re-export.
 - **Implementers:** `dataio.readers`->Reader; `dataio.load_strategy`->LoadStrategy; `dataio.checks`->Check; `dataio.maskers`->Masker; `framework/*`->Engine.
 
-## 6. Implementation guidance + constraints
+## 6. Implementation logic & guidance
+**Logic / algorithm:** N/A - interface-only (method bodies are `...`; contracts contain no logic).
+
 Path: `src/core/contracts/{reader,load_strategy,engine,check,masker}.py` + `__init__.py`. Emit exactly the skeleton in section 3.
 **Constraints (hard):**
 - No logic in contracts - method bodies are `...` only.

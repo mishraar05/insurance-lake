@@ -24,4 +24,4 @@ PII/PHI classification and masking techniques.
 - MASK-021: Physical masking
 
 ## Note
-⚠️ **Paid edition only** - requires Model Serving for PII classification
+Requires Model Serving for PII classification

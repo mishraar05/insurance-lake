@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: Platform/DevOps
 runtime: genie-code
-fe_ready: true
 build_order: 1
 depends_on: ['framework-dev.build-ingestion-engine', 'framework-dev.build-harmonization-engine']
 backlog_ids: ['HARM-040', 'DEVOPS-010']

@@ -7,7 +7,6 @@ maturity: active
 status: active
 owner_role: Platform/DevOps
 runtime: genie-code
-fe_ready: true
 build_order: 0
 depends_on: []
 backlog_ids: ['FND-030']

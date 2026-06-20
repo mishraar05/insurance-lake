@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: ML/AI Engineer
 runtime: genie-code
-fe_ready: true
 build_order: 3
 depends_on: ['authoring.metadata-population', 'domain.pc-acord-canonical']
 backlog_ids: ['AGENT-011', 'HARM-020']

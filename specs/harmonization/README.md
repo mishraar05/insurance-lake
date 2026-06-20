@@ -14,7 +14,7 @@ Data transformation and ACORD canonical model alignment.
 - SQL and Python transformations
 - ACORD canonical model alignment (Party, Policy, Coverage, Claim, Payment, Loss)
 - SCD1/SCD2 transforms
-- Declarative (Lakeflow) + non-declarative (Structured Streaming)
+- Declarative (Lakeflow) + non-declarative (classic batch PySpark)
 - Column-level lineage
 - Data standardization UDFs
 

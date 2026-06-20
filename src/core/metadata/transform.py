@@ -56,7 +56,7 @@ class TransformConfig:
                 f"must be different"
             )
         
-        # SCD2 with DECLARATIVE engine requires APPLY CHANGES
+        # SCD2 with DECLARATIVE engine requires AUTO CDC
         if self.scd_type == "SCD2" and self.engine == "DECLARATIVE":
             if not self.scd_key_columns or not self.scd_timestamp_column:
                 raise ValueError(

@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: ML/AI Engineer
 runtime: genie-code
-fe_ready: false
 build_order: 3
 depends_on: ['authoring.data-profiling']
 backlog_ids: ['AGENT-015', 'MASK-002']

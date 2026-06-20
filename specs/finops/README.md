@@ -12,15 +12,15 @@ Cost tracking, estimation, and optimization.
 ## Key Features
 - Consumption tracking (DBU, SQL warehouse time, Genie Code)
 - Cost attribution (per feed, per transform, per pipeline)
-- Customer cost estimation (Free Edition benchmark → Paid projection)
+- Customer cost estimation (PoC benchmark → production projection)
 - Cost optimization recommendations
 - Budget alerts
 - FinOps dashboard
 
 ## Methodology
-1. Measure consumption on Free Edition
+1. Measure consumption on Databricks
 2. Derive unit costs (per feed/transform/generation)
-3. Apply paid list prices
+3. Apply list prices
 4. Scale by customer volume
 5. Generate low/expected/high cost bands
 

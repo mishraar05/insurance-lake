@@ -7,7 +7,6 @@ maturity: draft
 status: scaffold
 owner_role: Data Engineer
 runtime: genie-code
-fe_ready: true
 build_order: 1
 depends_on: ['framework-dev.build-ingestion-engine', 'domain.pc-acord-canonical']
 backlog_ids: ['HARM-001', 'HARM-002', 'HARM-010', 'HARM-020', 'HARM-030', 'HARM-031', 'HARM-050', 'HARM-051', 'HARM-054']

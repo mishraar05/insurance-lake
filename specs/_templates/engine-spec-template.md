@@ -2,7 +2,7 @@
 
 **Spec ID:** [EPIC-###, EPIC-###, ...]  
 **Title:** [Engine Name] - [Brief description]  
-**Author:** [Your Name]  
+**Owner:** EY  
 **Date:** [YYYY-MM-DD]  
 **Status:** Draft | Review | Approved | Implemented  
 **Depends On:** [List spec IDs]

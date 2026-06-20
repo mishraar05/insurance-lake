@@ -1,9 +1,9 @@
 # BENCH-001 - PoC Benchmark Plan
 
-Status: active · 2026-06-18 · Skill: `orchestration.router` (FE Genie-Code sequencer) · Runs on Databricks Free Edition.
+Status: active · 2026-06-18 · Skill: `orchestration.router` · Runs on Databricks.
 
 ## Objective
-Prove the spec -> Genie Code -> working-framework loop before scaling on the paid workspace. Two questions:
+Prove the spec -> Genie Code -> working-framework loop before scaling on Databricks (Premium). Two questions:
 - **(a) Fidelity** - can Genie Code generate a correct, working framework slice from our specs, and how much effort does it save?
 - **(b) Functional correctness** - does the generated ingestion/harmonization/DQ produce correct results end to end?
 
@@ -21,10 +21,10 @@ One synthetic `policy` feed through: **ingest (bronze, SCD2) -> harmonize (silve
 | Consumption | DBU/time/Genie via `control.cost-tracking` | recorded for the cost model |
 
 ## Procedure
-1. Free Edition workspace ready (UC, SQL warehouse, serverless). 2. Generate synthetic `policy` data. 3. Author/seed the feed config. 4. Run the router's Genie-Code sequencer over the FE-ready skills to generate the slice. 5. Execute; capture generation + correctness + consumption metrics. 6. Compare to golden; record results in the scorecard.
+1. Workspace ready (UC, SQL warehouse). 2. Generate synthetic `policy` data. 3. Author/seed the feed config. 4. Run the router's Genie-Code sequencer over the skills to generate the slice. 5. Execute; capture generation + correctness + consumption metrics. 6. Compare to golden; record results in the scorecard.
 
 ## Scorecard (output)
-A one-page summary: fidelity %, effort saved %, correctness pass/fail by stage, consumption + projected paid cost (feeds FINOPS-040 and the customer estimate).
+A one-page summary: fidelity %, effort saved %, correctness pass/fail by stage, consumption + projected cost (feeds FINOPS-040 and the customer estimate).
 
 ## Exit criteria
-Slice runs end-to-end on Free Edition; correctness passes; a credible unit-cost -> probable-customer-cost projection is produced. Green = proceed to the paid build.
+Slice runs end-to-end; correctness passes; a credible unit-cost -> probable-customer-cost projection is produced. Green = proceed to the full build.
