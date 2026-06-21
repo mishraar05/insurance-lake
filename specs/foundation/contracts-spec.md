@@ -3,11 +3,11 @@ id: foundation.contracts
 title: Core Contracts (Typed Interfaces)
 owner: EY
 status: active
-contracts_version: 0.1.0
+contracts_version: 0.2.0
 target_path: src/core/contracts/
 owning_skill: framework-dev.scaffold-structure
 backlog: [FND-031]
-provides: [Reader, LoadStrategy, Engine, RunContext, RunResult, Check, CheckResult, Masker]
+provides: [Reader, LoadStrategy, Engine, RunContext, RunResult, WriteResult, Check, CheckResult, Masker]
 depends_on: [foundation.config-model]
 generation_context:            # the ONLY files the generator should read to build this
   - src/core/metadata/*.py
@@ -24,13 +24,13 @@ regeneration: fully-generated  # whole package is generated from this spec; safe
 ## 1. Purpose & scope
 Define the stable, typed boundaries that decouple the engines (`framework/`) from the reusable primitives (`dataio/`) and services. Implementations depend on these Protocols, never on each other - this keeps the dependency direction clean (`core <- dataio/services <- framework`) and lets us swap a reader or load-strategy without touching an engine.
 
-- **In scope:** the Protocols `Reader`, `LoadStrategy`, `Engine`, `Check`, `Masker` + the value objects `RunContext`, `RunResult`, `CheckResult`.
+- **In scope:** the Protocols `Reader`, `LoadStrategy`, `Engine`, `Check`, `Masker` + the value objects `RunContext`, `RunResult`, `WriteResult`, `CheckResult`.
 - **Out of scope:** any implementation (those live in `dataio/`, `services/`, `framework/`).
 
 ## 2. Requirements
 **Functional**
 - FR-1: Define `Reader`, `LoadStrategy`, `Engine`, `Check`, `Masker` Protocols.
-- FR-2: Define value objects `CheckResult`, and `RunContext`/`RunResult` for `Engine`.
+- FR-2: Define value objects `CheckResult`, `WriteResult` (returned by `LoadStrategy.apply`), and `RunContext`/`RunResult` for `Engine`.
 - FR-3: Type every parameter against `core.metadata` models (`SourceConfig`, `TargetConfig`, `LoadConfig`, `DQRuleConfig`, `MaskingRuleConfig`) - no `Any` in public signatures except `RunContext.params`.
 - FR-4: Protocols are `@runtime_checkable`.
 
@@ -66,9 +66,16 @@ class Reader(Protocol):
     def read(self, source: SourceConfig, load: LoadConfig) -> "DataFrame": ...
 
 # src/core/contracts/load_strategy.py
+@dataclass
+class WriteResult:
+    num_output_rows: int              # rows the commit actually wrote (engines read this for balance)
+    operation: str = "WRITE"          # WRITE | MERGE | OVERWRITE
+    metrics: Dict[str, Any] = field(default_factory=dict)   # raw Delta operationMetrics
+
 @runtime_checkable
 class LoadStrategy(Protocol):
-    def apply(self, df: "DataFrame", target: TargetConfig, load: LoadConfig) -> None: ...
+    def apply(self, df: "DataFrame", target: TargetConfig, load: LoadConfig,
+              options: Optional[Dict[str, str]] = None) -> WriteResult: ...   # options from schema-evolution
 
 # src/core/contracts/check.py
 @dataclass
@@ -87,7 +94,7 @@ class Check(Protocol):
 class Masker(Protocol):
     def mask(self, df: "DataFrame", rules: List[MaskingRuleConfig]) -> "DataFrame": ...
 ```
-`__init__.py` re-exports all of the above and sets `__version__ = "0.1.0"`.
+`__init__.py` re-exports all of the above and sets `__version__ = "0.2.0"`.
 
 ## 4. Inputs / Outputs
 - **Inputs:** config models from `core.metadata`; Spark `DataFrame`s; a `RunContext` for engines.
@@ -251,7 +258,7 @@ Path: `src/core/contracts/{reader,load_strategy,engine,check,masker}.py` + `__in
 
 ## 7. Validation, edge cases & versioning policy
 - `@runtime_checkable` verifies method **names**, not signatures - the `mypy` acceptance step enforces signatures.
-- Versioned via `core.contracts.__version__`. Adding/changing a method or value-object field is a **breaking change**: bump `contracts_version` (front-matter + `__version__`) and update all implementers in the same change. A new optional capability -> a **new Protocol**, never a mutation.
+- Versioned via `core.contracts.__version__`. Adding/changing a method or value-object field is a **breaking change**: bump `contracts_version` (front-matter + `__version__`) and update all implementers in the same change. A new optional capability -> a **new Protocol**, never a mutation. (v0.2.0: added `WriteResult` and `LoadStrategy.apply(..., options) -> WriteResult` so engines read real write metrics for the balance check.)
 
 ## 8. Error handling + ABC instrumentation
 Contracts carry no logic. **Rule:** every implementer instruments via the ABC SDK (audit/balance/cost) + structured logging - enforced by `standards.md` + the self-review gate, not by the contract.
@@ -331,7 +338,8 @@ def test_interface_segregation():
 class AutoLoaderReader:          # Reader
     def read(self, source, load): ...          # returns DataFrame
 class Scd2Strategy:              # LoadStrategy
-    def apply(self, df, target, load): ...     # writes; returns None
+    def apply(self, df, target, load, options=None):
+        return WriteResult(num_output_rows=df.count())   # writes; returns WriteResult
 class HashMasker:                # Masker
     def mask(self, df, rules): return df
 assert isinstance(HashMasker(), Masker)        # structural match, no inheritance
@@ -379,7 +387,7 @@ class Reader(Protocol):
     def read(self, source: SourceConfig, load: LoadConfig) -> DataFrame: ...
 
 class LoadStrategy(Protocol):
-    def apply(self, df: DataFrame, target: TargetConfig, load: LoadConfig) -> None: ...
+    def apply(self, df: DataFrame, target: TargetConfig, load: LoadConfig, options=None) -> WriteResult: ...
 
 class Check(Protocol):
     def evaluate(self, df: DataFrame, rule: DQRuleConfig) -> CheckResult: ...

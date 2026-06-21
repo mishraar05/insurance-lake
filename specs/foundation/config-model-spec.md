@@ -14,7 +14,7 @@ provides:
   - DQRuleConfig
   - ConfigLoader
 depends_on:
-  - abc-sdk-spec
+  - foundation.abc-sdk
 generation_context:
   - specs/foundation/config-model-spec.md
   - specs/foundation/abc-sdk-spec.md
@@ -96,6 +96,7 @@ class TargetConfig(BaseModel):
     acord_entity: Optional[str]
     retention_days: int
     enable_cdf: bool
+    dimensional: bool = False            # gold star/snowflake (drives schema-evolution SCD handling)
     active_flag: bool = True
 
 class LoadConfig(BaseModel):
@@ -114,6 +115,13 @@ class LoadConfig(BaseModel):
     autoloader_options: dict
     schedule_cron: Optional[str]
     depends_on: Optional[List[str]]
+    # schema-evolution policy (consumed by ingestion.engine._build_resolution_context -> ResolutionContext)
+    source_system_type: str = "stable"   # stable | regulated | volatile
+    governance_tier: str = "standard"    # standard | high
+    zero_downtime: bool = False
+    paranoid: bool = False
+    type_changes: str = "none"           # none | widening | strict
+    renames_expected: bool = False
     active_flag: bool = True
 
 class TransformConfig(BaseModel):
@@ -271,63 +279,38 @@ class ConfigLoader:
 
 ## 6. Logic / algorithm
 
-### Config Loading Flow
+**Logic / algorithm** (source of truth - the generator translates this, it does not invent it):
+
+- **Procedure:**
+  1. `ConfigLoader` reads the requested config row from its UC table (`get_source`/`get_target`/`get_load`/`get_transform`/`get_dq_rule`).
+  2. Resolve FK dependencies by ID lookup (`load.source_id` -> `cfg_source`, `load.target_id` -> `cfg_target`).
+  3. Validate before returning the typed object (FK integrity, enums, business rules, naming - see Decision rules).
+  4. On any config write, append an ABC audit record (who/when/before/after); config versions are immutable (never update in place).
+  5. Build the execution plan from `load.engine` and hand the resolved configs to the engine.
+
+- **Decision rules:**
+  - **FK integrity:** every `source_id`/`target_id` must resolve in `cfg_source`/`cfg_target`, else `FKViolationError`.
+  - **Enum validation:** `source_type`, `load_pattern`, `engine` must be valid enum values, else `ValidationError`.
+  - **Business rules:** STREAM load types require `watermark_column`; SCD2 `load_pattern` requires `merge_keys`; DECLARATIVE engine requires `checkpoint_location`.
+  - **Naming:** `source_name` is alphanumeric + underscores (no spaces); `table_name` is UC-compliant (`catalog.schema.table`).
+  - **Multi-customer isolation:** prefer **schema-level** (shared catalog, per-customer schema) over catalog-level - simpler, lower overhead.
+
+- **Key code fragments** (the generated code MUST contain these):
 ```python
-# 1. Read config from UC tables
+# load + FK resolution
 loader = UCConfigLoader(spark)
 load_cfg = loader.get_load("load_001")
-
-# 2. Resolve dependencies (FK traversal)
 source_cfg = loader.get_source(load_cfg.source_id)
 target_cfg = loader.get_target(load_cfg.target_id)
 
-# 3. Build execution plan
-if load_cfg.engine == "DECLARATIVE":
-    pipeline = DeclarativePipeline(source_cfg, target_cfg, load_cfg)
-elif load_cfg.engine == "AUTOLOADER":
-    pipeline = AutoLoaderPipeline(source_cfg, target_cfg, load_cfg)
-
-# 4. Execute
-pipeline.run()
-```
-
-### Config Validation Rules
-- **FK integrity:** All foreign keys must resolve (source_id in cfg_source, target_id in cfg_target)
-- **Enum validation:** `source_type`, `load_pattern`, `engine` must be valid enum values
-- **Business rules:**
-  - STREAM_* load_types require `watermark_column`
-  - SCD2 load_pattern requires `merge_keys`
-  - DECLARATIVE engine requires `checkpoint_location`
-- **Naming conventions:**
-  - `source_name`: alphanumeric + underscores, no spaces
-  - `table_name`: UC-compliant (catalog.schema.table)
-
-### Config Versioning
-Every change to config tables triggers ABC audit:
-```python
-# Before update
+# versioned change -> ABC audit (append-only, never update in place)
 old_cfg = get_config("load_001")
-
-# Update
 update_config("load_001", {"schedule_cron": "0 8 * * *"})
-
-# ABC audit captures change
-abc_sdk.audit(
-    event="config_update",
-    entity_type="load",
-    entity_id="load_001",
-    before=old_cfg,
-    after=new_cfg,
-    changed_by=current_user()
-)
+abc_sdk.audit(event="config_update", entity_type="load", entity_id="load_001",
+              before=old_cfg, after=new_cfg, changed_by=current_user())
 ```
 
-### Multi-Customer Isolation
-Two strategies:
-1. **Catalog-level:** Each customer gets own catalog (`customer_a`, `customer_b`)
-2. **Schema-level:** Shared catalog, customer-specific schema (`insurelake_config.customer_a`, `insurelake_config.customer_b`)
-
-Recommended: **Schema-level** (simpler, lower overhead)
+- **Edge cases:** missing source file -> fail fast at config-load time; source/target schema mismatch -> flagged, handled by `dataio.schema-evolution`; circular `depends_on` -> topological sort detects the cycle and fails; orphaned FK (deleted `source_id`) -> soft delete (`active_flag=false`) + cascade; invalid `schedule_cron` -> reject at save. (Full handling in section 7.)
 
 ## 7. Validation, edge cases & versioning
 
@@ -548,7 +531,8 @@ except FKViolationError as e:
 ### Related Specs
 - **metadata-models-spec.md** — Runtime state models (Feed, Job, AuditLog)
 - **control-tables-ddl-spec.md** — SQL DDL for config tables
-- **ingestion-engine-spec.md** — Consumes source + load configs
+- **ingestion-engine-spec.md** — Consumes source + load configs; `_build_resolution_context` reads `TargetConfig.layer`, `TargetConfig.dimensional`, and the `LoadConfig` schema-evolution policy fields
+- **schema-evolution-spec.md** — `ResolutionContext` is populated from these config fields
 - **harmonization-engine-spec.md** — Consumes transform configs
 
 ---

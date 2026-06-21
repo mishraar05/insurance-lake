@@ -30,34 +30,35 @@ capability:
 # Ingestion Engine - Specification
 
 ## 1. Purpose & scope
-Orchestrate metadata-driven **batch** ingestion from file sources into Unity Catalog Delta tables, with ABC instrumentation, bounded retry, and quarantine - **delegating** schema-evolution to `dataio.schema-evolution` and the quarantine sink to `dataio.quarantine` rather than reimplementing them.
-- In scope: single- and multi-source **append** (Phase 1); config validation; a **real** balance check; retry of the **read**; routing failed/drift/corrupt data to the shared quarantine sink; ABC audit/balance/cost hooks.
-- Out of scope: SCD1/2 + MERGE (load-strategy specs); streaming / Auto Loader (declarative track); transformations (harmonization); the schema-evolution decision logic (`dataio.schema-evolution`); the quarantine **table/writer** (`dataio.quarantine`); record-level DQ (deferred).
+Orchestrate metadata-driven **batch** ingestion from file sources into Unity Catalog Delta tables, with ABC instrumentation, bounded retry, and quarantine - **delegating** schema-evolution to `dataio.schema-evolution` and the quarantine sink to `dataio.quarantine`. This is the **non-declarative** (batch) engine; `engine="non_declarative"` is fixed.
+- In scope: single/multi-source **append** (Phase 1); config validation; the **schema-evolution handshake**; a **real** balance check from the write result; retry of the **read**; routing failed/drift/corrupt data to the shared quarantine sink; ABC audit/balance/cost + **two-phase** schema-decision logging.
+- Out of scope: SCD1/2 + MERGE; streaming / Auto Loader (declarative track); transformations; the schema-evolution decision logic; the quarantine table/writer; synchronous HITL approval (the engine **defers**, it does not block).
 
 ## 2. Requirements
 **Functional**
-- FR-1: Fully metadata-driven - no hard-coded catalogs, paths, or formats; everything from `LoadConfig`/`SourceConfig`/`TargetConfig`.
-- FR-2: Single-source and multi-source (union) read into one target.
-- FR-3: **Append** only (Phase 1); the write is **single-attempt** (never retried) to avoid duplicate data.
-- FR-4: **Real balance** - compare source `rows_read` against rows **actually committed** (Delta `operationMetrics.numOutputRows`), not an assumed `rows_written = rows_read`.
-- FR-5: Retry only the **idempotent** read, with bounded exponential/linear backoff, on **typed** transient errors.
-- FR-6: Delegate schema evolution to `dataio.schema-evolution` (resolve + appliers + `capture_drift`); route drift rows to quarantine.
-- FR-7: Delegate quarantine to `dataio.quarantine.write_quarantine(...)` with a `QuarantineReason` (`WRITE_FAILURE`, `READ_FAILURE`, `SCHEMA_DRIFT`, `CORRUPT_RECORD`, ...).
-- FR-8: ABC instrumentation; **governed feeds** (`abc_required=True`) fail if ABC cannot record; others degrade via `NullRunHandle`.
+- FR-1: Metadata-driven - no hard-coded catalogs/paths/formats.
+- FR-2: Single- and multi-source append into one target; multi-source schema mismatch requires explicit `allow_source_schema_mismatch` (else fail), and the **union null-fill** is audited.
+- FR-3: **Append** only; the write is **single-attempt** (never retried) - no duplicate data.
+- FR-4: **Real balance** - `rows_written` comes from `WriteResult.num_output_rows` returned by `strategy.apply` (not `DESCRIBE HISTORY`, not an assumption).
+- FR-5: Retry only the **idempotent** read, bounded backoff, on **typed** `TransientError`.
+- FR-6: **Schema-evolution handshake** - `_build_resolution_context(config)` -> `resolve_schema_evolution` -> `validate_schema_compatibility` -> branch (reject/defer/apply) -> `delta_table_properties` (ALTER) + `delta_write_options` (write) + `capture_drift`; drift rows -> quarantine.
+- FR-7: Delegate quarantine to `dataio.quarantine.write_quarantine(...)` (separate `{table}_quarantine`) with a `QuarantineReason`.
+- FR-8: ABC: governed feeds (`abc_required`) fail if `start_run` can't record; mid-run ABC failures degrade (flagged `abc_degraded`). Schema decisions use **two-phase** logging (pending -> applied/failed/deferred) under one `trace_id`.
 
-**Non-functional**: idempotent re-runs are the load-strategy's job; mypy `--strict`, no `Any` in public signatures; >80% coverage; ABC logging never crashes the run (except the governed-feed gate).
+**Non-functional**: mypy `--strict`, no `Any` in public signatures; >80% coverage; identifiers validated before interpolation into SQL.
 
 ## 3. Interface - exact skeleton (the generator MUST emit this)
 ```python
 class IngestionError(Exception): ...
 class ConfigurationError(IngestionError): ...
-class TransientError(IngestionError): ...            # base for retryable errors (readers/strategies raise this)
+class TransientError(IngestionError): ...            # readers/strategies raise this for retryable failures
 class MaxRetriesExceededError(IngestionError): ...
 
 @dataclass
-class NullRunHandle:                                  # used only when ABC is unavailable AND not required
+class NullRunHandle:                                  # used only when ABC unavailable AND not required
     run_id: str = "UNKNOWN"
     trace_id: str = "UNKNOWN"
+    def __bool__(self) -> bool: return False          # so `if run_handle:` detects degraded mode
 
 @dataclass
 class RetryConfig:
@@ -65,7 +66,7 @@ class RetryConfig:
     backoff: str = "exponential"                      # "exponential" | "linear"
     initial_delay_sec: float = 1.0
     max_delay_sec: float = 60.0
-    multiplier: float = 2.0
+    multiplier: float = 2.0                           # > 1.0 for exponential
 
 @dataclass
 class IngestionConfig:
@@ -74,110 +75,126 @@ class IngestionConfig:
     target: TargetConfig
     retry: Optional[RetryConfig] = None
     enable_quarantine: bool = True
-    abc_required: bool = False                        # governed feeds: fail if ABC can't record
+    abc_required: bool = False                        # governed feeds: fail if ABC can't start
+    allow_source_schema_mismatch: bool = False        # multi-source: opt in to union null-fill
     validate_source_format: bool = True
+    cost_usd: Optional[float] = None                  # None until Phase 2 (no fake 0.0)
 
     @classmethod
-    def from_params(cls, params: dict) -> "IngestionConfig": ...   # build NESTED dataclasses (not **params)
+    def from_params(cls, params) -> "IngestionConfig": ...   # accepts dict OR IngestionConfig; builds NESTED
+                                                              # dataclasses; raises ConfigurationError on missing keys
 
 class IngestionEngine:                                # implements core.contracts.Engine
     def __init__(self, spark: "SparkSession", abc: "ABC",
-                 reader: "Reader", strategy: "LoadStrategy") -> None: ...
-    def run(self, context: RunContext) -> RunResult: ...               # Engine protocol entry
+                 reader: "Reader", strategy: "LoadStrategy") -> None: ...   # hasattr(...) duck-typed checks
+    def run(self, context: RunContext) -> RunResult: ...
     def run_batch_append(self, config: IngestionConfig, run_handle) -> RunResult: ...
-    def validate_config(self, config: IngestionConfig) -> None: ...     # fail fast
-    # private: _read_sources, _retry_read, _measure_landed, _safe_abc, _classify
+    def validate_config(self, config: IngestionConfig) -> None: ...
+    def _build_resolution_context(self, config: IngestionConfig) -> "ResolutionContext": ...
+    # private: _read_sources, _retry_read, _safe_abc
 ```
-Constructor uses duck-typing (`hasattr(reader, "read")`, `hasattr(strategy, "apply")`), not `isinstance`, for protocol checks.
+Refines two contracts (flagged in section 12): `LoadStrategy.apply(df, target, load, options: dict) -> WriteResult` (returns `num_output_rows`); `core.contracts.WriteResult` is added there.
 
 ## 4. Inputs / Outputs
-- Input: `RunContext` (component, entity, run_type, params); params -> `IngestionConfig.from_params`. Data: file sources (CSV/JSON/Parquet/Delta) on UC Volumes or cloud storage.
-- Output: a Delta append to the target; quarantine rows via `dataio.quarantine`; ABC records (audit/balance/cost); a `RunResult(status, metrics, run_id)`.
+- Input: `RunContext` (params -> `IngestionConfig.from_params`); file sources (CSV/JSON/Parquet/Delta) on UC Volumes / cloud storage.
+- Output: a Delta append; quarantine rows via `dataio.quarantine`; ABC audit/balance/cost + two-phase schema-decision records; `RunResult(status, metrics, run_id)`.
 
 ## 5. Design
-Dependency injection: `Reader`, `LoadStrategy`, `ABC` are injected; schema-evolution and quarantine are called as their module contracts (mockable). The engine is a thin orchestrator - it does not read, write, evolve schema, or own the quarantine table.
+Thin orchestrator with injected `Reader`/`LoadStrategy`/`ABC`; schema-evolution and quarantine called as their module contracts (patchable for tests). The engine never reads, writes, evolves schema, or owns the quarantine table.
 
-Flow (batch append): `from_params -> validate_config -> ABC.start_run -> _retry_read (materialized) -> [schema-evolution: resolve + validate_schema_compatibility + capture_drift] -> strategy.apply (single attempt) -> _measure_landed (Delta numOutputRows) -> balance(rows_read vs landed) -> ABC.cost/end`. Drift rows from `capture_drift`, corrupt rows from the reader, and a failed write all route to `dataio.quarantine.write_quarantine(reason=...)`.
+**Schema-evolution handshake (the integration contract):**
+1. `ctx = _build_resolution_context(config)` - `engine="non_declarative"` fixed; `layer` from `TargetConfig.layer`; `source_system_type`/`governance_tier`/`zero_downtime`/`paranoid`/`type_changes`/`renames_expected`/`dimensional`/`scd_type` from `LoadConfig`/`TargetConfig` where present, else the schema-evolution defaults. (Requires `foundation.config-model` to expose `layer` + `source_system_type` - see section 12.)
+2. `cfg = resolve_schema_evolution(ctx)`; `errs = validate_config(cfg)` (schema-evolution's own conflict guard) -> raise on any.
+3. `compat = validate_schema_compatibility(incoming, target_schema, cfg)`:
+   - `allowed=False` -> **reject branch**: ABC phase-2 `failed`; quarantine the batch (`SCHEMA_DRIFT`, detail=reasons); do **not** apply. If `requires_rebuild`, surface it in `RunResult`.
+   - `cfg.require_approval` -> **defer branch**: ABC phase-1 `pending`; quarantine the batch (`SCHEMA_DRIFT`, detail="awaiting approval"); do **not** apply the change. The engine never blocks - the change applies on a later run after approval.
+   - else **apply branch** (below).
+4. Apply branch: ALTER the existing target with `delta_table_properties(cfg)` **before** the write (or set them immediately after first-write create); compute `write_options = delta_write_options(cfg)`; if `cfg.capture_drift_to_quarantine`, `clean, drift = capture_drift(df, expected, cfg)` and quarantine `drift` (`SCHEMA_DRIFT`); else `clean = df`.
 
-**Real balance** replaces the old tautology: `rows_written` is read from the append commit's `operationMetrics.numOutputRows`, so the balance can actually detect under/over-writes.
+**Balance** uses `strategy.apply(...).num_output_rows` (the commit's own metric) - immune to the concurrent-write race of `DESCRIBE HISTORY LIMIT 1`.
 
 ### SOLID Principles Application
-* **SRP:** the engine only orchestrates; reading, writing, schema evolution, and quarantine each live in their own component.
-* **OCP:** new load patterns add a `LoadStrategy`; new sources add a `Reader`; new quarantine reasons live in `dataio.quarantine` - all without engine changes.
-* **LSP:** any `Reader`/`LoadStrategy` honoring its protocol is substitutable; the engine never branches on concrete types.
+* **SRP:** orchestration only; read/write/schema-evolution/quarantine each live in their own component.
+* **OCP:** new patterns add a `LoadStrategy`; new sources add a `Reader`; new quarantine reasons live in `dataio.quarantine` - no engine change.
+* **LSP:** any protocol-honoring `Reader`/`LoadStrategy` is substitutable; the engine never branches on concrete types.
 * **ISP:** the engine calls only `Reader.read`, `LoadStrategy.apply`, the ABC methods it uses, and the two delegate entry points.
-* **DIP:** depends on the `Reader`/`LoadStrategy` protocols and the schema-evolution/quarantine contracts, not concrete implementations (all injectable/patchable for tests).
+* **DIP:** depends on protocols + the schema-evolution/quarantine contracts, not concrete implementations.
 
 ## 6. Implementation logic & guidance
 **Logic / algorithm** (source of truth - the generator translates this, it does not invent it):
 - **Procedure:**
-  1. `config = IngestionConfig.from_params(context.params["config"])` - builds the **nested** `LoadConfig`/`SourceConfig`/`TargetConfig` (never `IngestionConfig(**dict)`).
-  2. `validate_config(config)` - fail fast (required fields, catalog/schema exist, source paths + format, `load_pattern == "APPEND"`, retry config sane).
-  3. Start ABC: `run_handle = abc.start_run(...)`; on failure, if `abc_required` -> raise, else `run_handle = NullRunHandle()`.
-  4. `df = _retry_read(lambda: _read_sources(config), config)` - the read is **materialized inside** the retry (`cache()` + `count()`), so transient read errors are actually caught and retried.
-  5. Schema evolution (delegated): `cfg = resolve_schema_evolution(ctx)`; `validate_schema_compatibility(df.schema, target_schema, cfg)`; if drift handling applies, `clean, drift = capture_drift(df, expected, cfg)` and `write_quarantine(spark, target, drift, SCHEMA_DRIFT, run_id)`; apply `delta_table_properties`/`delta_write_options(cfg)` to the write.
-  6. `strategy.apply(clean, target, load)` - **single attempt** (append is not idempotent; never retried).
-  7. `landed = _measure_landed(target)` (Delta `numOutputRows`); `rows_read = df.count()` (already materialized).
+  1. `config = IngestionConfig.from_params(context.params["config"])` (dict or object; nested build; `ConfigurationError` on missing keys).
+  2. `validate_config(config)` - fail fast (fields, catalog/schema exist, source paths+format, `APPEND` only, **retry config**: `max_attempts>0`, `initial_delay_sec>=0`, `max_delay_sec>=initial_delay_sec`, `multiplier>1.0` for exponential).
+  3. `run_handle = abc.start_run(...)`; on failure -> `raise` if `abc_required` else `NullRunHandle()`.
+  4. `df = _retry_read(lambda: _read_sources(config), config)` - materialized **inside** the retry; multi-source uses `unionByName(allowMissingColumns=True)` **only if** `allow_source_schema_mismatch`, else fail; a null-fill is audited (`UNION_NULL_FILL`).
+  5. Schema-evolution handshake (section 5) -> `clean` + applied table props/write options, or reject/defer (return early with the quarantine outcome).
+  6. `result = strategy.apply(clean, config.target, config.load, options=write_options)` - **single attempt**.
+  7. `rows_read = df.count()` (already materialized); `landed = result.num_output_rows`.
   8. Balance: `delta = rows_read - landed`; `reconciliation = "PASS" if delta == 0 else "FAIL"`; log to ABC.
-  9. Cost: log duration; DBU/$ deferred (Phase 2) - recorded explicitly as `0.0` with a `cost_estimated=False` flag (no fake numbers).
-  10. `ABC.end_run(status)`; return `RunResult`.
-  On a **write** failure: `write_quarantine(spark, target, clean, WRITE_FAILURE, run_id, detail=str(e))` (if `enable_quarantine`), then re-raise.
+  9. Cost: duration only; `cost_usd=None` (Phase 2). `end_run(status, abc_degraded)`; return `RunResult`.
+  On a **write** failure: if `enable_quarantine`, `write_quarantine(spark, target, clean, WRITE_FAILURE, run_id, detail=str(e))`; if that raises `QuarantineWriteError`, `_safe_abc` log it - then **re-raise the original write error** (never hide it behind the quarantine error).
 - **Decision rules:**
-  - Retry **iff** the error is a `TransientError` (typed) - readers/strategies raise it for network/throttle/503; everything else fails fast. No "retry everything not fatal".
-  - Retry wraps the **read only**; the **append is single-attempt**.
-  - Single vs multi source: `len(sources) == 1` -> direct read; else `unionByName(..., allowMissingColumns=True)` **and** log a `schema_drift` balance note so silent nulls are visible.
-  - ABC unavailable: `abc_required` -> raise; else continue with `NullRunHandle` (degraded, audited as such).
+  - Retry **iff** `isinstance(e, TransientError)`; wraps the **read only**; the append is single-attempt.
+  - Compatibility `allowed=False` -> quarantine + no apply; `require_approval` -> defer + quarantine + no apply; else apply.
+  - Multi-source mismatch -> fail unless `allow_source_schema_mismatch`; then null-fill + audit.
+  - ABC: `abc_required` gates `start_run` only; mid-run failures degrade (`abc_degraded=True`), the run still completes (data > audit-completeness mid-run, and the degradation is itself recorded).
+  - Guard quarantine with `df is not None` (never DataFrame truthiness / `locals()`).
 - **Key code fragments** (the generated code MUST contain these):
 ```python
-def _retry_read(self, fn, config):                    # retry an IDEMPOTENT, materialized read
+def _build_resolution_context(self, config):
+    t, l = config.target, config.load
+    return ResolutionContext(
+        layer=t.layer, engine="non_declarative",
+        source_system_type=getattr(l, "source_system_type", "stable"),
+        governance_tier=getattr(l, "governance_tier", "standard"),
+        zero_downtime=getattr(l, "zero_downtime", False),
+        paranoid=getattr(l, "paranoid", False),
+        type_changes=getattr(l, "type_changes", "none"),
+        renames_expected=getattr(l, "renames_expected", False),
+        dimensional=getattr(t, "dimensional", False),
+        scd_type=getattr(l, "scd_type", None))
+
+def _retry_read(self, fn, config):
     rc = config.retry or RetryConfig()
     for attempt in range(1, rc.max_attempts + 1):
         try:
-            df = fn().cache()
-            df.count()                                # force execution INSIDE the retry
+            df = fn().cache(); df.count()                 # force execution INSIDE the retry
             return df
         except Exception as e:
-            if not isinstance(e, TransientError) or attempt == rc.max_attempts:
-                if attempt == rc.max_attempts:
-                    raise MaxRetriesExceededError(f"read failed after {attempt} attempts: {e}") from e
+            if not isinstance(e, TransientError):
                 raise
+            if attempt == rc.max_attempts:
+                raise MaxRetriesExceededError(f"read failed after {attempt} attempts: {e}") from e
             delay = (rc.initial_delay_sec * rc.multiplier ** (attempt - 1)
                      if rc.backoff == "exponential" else rc.initial_delay_sec * attempt)
             time.sleep(min(delay, rc.max_delay_sec))
 
-def _measure_landed(self, table):                     # rows actually committed (no full scan, no assumption)
-    metrics = (self.spark.sql(f"DESCRIBE HISTORY {table} LIMIT 1")
-                   .select("operationMetrics").collect()[0][0]) or {}
-    return int(metrics.get("numOutputRows", 0))
-
-def _safe_abc(self, fn, *a, **k):                     # logging never crashes the run
-    try: fn(*a, **k)
-    except Exception as e: print(f"WARNING: ABC logging failed: {e}", file=sys.stderr)
+# balance from the write's own metric (no DESCRIBE HISTORY race):
+result = self.strategy.apply(clean, config.target, config.load, options=write_options)
+landed = result.num_output_rows
 ```
-- **Edge cases:** empty source -> `rows_read=0`, `landed=0`, balance PASS; **append write fails mid-way** -> NOT retried (no duplicates); the batch routes to quarantine `WRITE_FAILURE` then the error re-raises; multi-source missing columns -> filled null **and** flagged; target table absent -> `strategy.apply` creates it (first write); ABC tables absent -> ABC SDK self-heals, else degraded; `df is not None` guards quarantine (no `'df' in locals()` reflection).
+- **Edge cases:** empty source -> `rows_read=0`, `landed=0`, balance PASS (guarded by `df is not None`, never `if df:`); **append fails mid-commit** -> Delta leaves the table consistent (atomic commit), NOT retried, failed rows reprocessed from source; **quarantine write fails** -> log via `_safe_abc`, re-raise the **original** error; compatibility reject/defer -> batch quarantined, change not applied; multi-source mismatch without opt-in -> `ConfigurationError`; large reads -> `cache()` may be `persist(DISK_ONLY)` to avoid OOM.
 
-**Constraints (hard):** no hard-coded catalog/path/format; the append is never retried; no fake metrics (cost flagged un-estimated); duck-typed protocol checks; delegate schema-evolution + quarantine (do not reimplement); instrument via ABC.
+**Constraints (hard):** no hard-coded catalog/path/format; append never retried; no fake metrics (`cost_usd=None`); duck-typed protocol checks; delegate schema-evolution + quarantine; validate identifiers before SQL interpolation; instrument via ABC.
 
 ## 7. Validation, edge cases & versioning policy
-`validate_config` fails fast on missing fields, absent catalog/schema, inaccessible/format-mismatched sources, non-`APPEND` patterns (Phase 1), and bad retry config. Adding load patterns/readers is additive (new strategy/reader). Changing the `IngestionConfig` shape is breaking - bump and regenerate. The Delta `operationMetrics` key (`numOutputRows`) is the external contract for balance; pin to current Databricks docs.
+`validate_config` is fail-fast (fields, catalog/schema existence, source access+format, `APPEND`-only, retry sanity). Adding load patterns/readers is additive. Breaking changes: `IngestionConfig` shape, and the `LoadStrategy.apply -> WriteResult` contract (section 12). External contracts to pin: Delta commit `num_output_rows`; current Auto Loader/Delta option names (via the delegate). **Config-model requirement:** `TargetConfig.layer` and `LoadConfig.source_system_type` (+ optional governance fields) must exist for `_build_resolution_context`; absent optionals fall back to schema-evolution defaults.
 
 ## 8. Error handling + ABC instrumentation
-Four classes: **Configuration** (fail fast), **Transient** (typed -> retry the read), **Fatal** (fail immediately), **ABC** (log & continue, except the governed gate). ABC calls go through `_safe_abc` so logging never kills the run - **except** when `abc_required=True` and `start_run` fails, which raises (governed feeds must be auditable). Audit points: start; per-source + total `rows_read`; `landed`; balance (`rows_read`, `landed`, `delta`, `reconciliation`); retry attempts (with typed classification); quarantine events (reason + count, from the `QuarantineResult`); end (`status`, `duration_sec`, `cost_estimated=False`).
+Classes: **Configuration** (fail fast), **Transient** (typed -> retry read), **Fatal** (fail now), **ABC** (degrade via `_safe_abc`, except the `start_run` gate). **Two-phase schema-decision logging** under one `trace_id`: phase-1 `decision`(`pending`) before apply (or before defer/reject); phase-2 terminal `applied`/`failed`/`deferred` after. Audit points: start; per-source + total `rows_read`; `landed`; balance (`rows_read`,`landed`,`delta`,`reconciliation`); retry attempts (typed); quarantine events (reason + count from `QuarantineResult`); union null-fill; end (`status`,`duration_sec`,`cost_usd=None`,`abc_degraded`). Governed feeds: `abc_required=True` makes a failed `start_run` fatal; a mid-run ABC failure sets `abc_degraded=True` but does not lose data.
 
 ## 9. Testing & acceptance
-Unit (mock Spark/ABC/Reader/Strategy): `from_params` builds nested dataclasses; `validate_config` rejects each bad case; `_retry_read` retries a `TransientError` and gives up after `max_attempts`; a **non-transient** read error is not retried; the **append is never retried** (write raised once -> one call, then quarantine + raise); `_measure_landed` reads `numOutputRows`; balance FAIL when `landed != rows_read`; `abc_required` raises on ABC-start failure; `NullRunHandle` path when not required. Integration (Spark): single- and multi-source append end-to-end; drift -> quarantine `SCHEMA_DRIFT`; write failure -> quarantine `WRITE_FAILURE`. Plus front-matter `acceptance`.
+Unit (mock Spark/ABC/Reader/Strategy): `from_params` builds nested dataclasses from a dict AND passes through an object, raising `ConfigurationError` on a missing `load`; `validate_config` rejects each bad case incl. retry config; `_build_resolution_context` maps fields + fixes `engine="non_declarative"`; `_retry_read` retries `TransientError`, gives up after `max_attempts`, does **not** retry a non-transient error; the **append is called once** even when it raises (then quarantine + re-raise original); balance uses `result.num_output_rows` and FAILs when `landed != rows_read`; compatibility `allowed=False` -> quarantine + no apply; `require_approval` -> defer + quarantine; multi-source mismatch without opt-in -> `ConfigurationError`; `abc_required` raises on ABC-start failure; `NullRunHandle.__bool__ is False`. Integration (Spark): single/multi-source append; drift -> `SCHEMA_DRIFT` quarantine; write failure -> `WRITE_FAILURE` quarantine. Plus front-matter `acceptance`.
 
 ## 10. Examples
-- **Single-source append:** read 1 source (retried, materialized) -> apply append once -> `landed = numOutputRows` -> balance PASS -> `RunResult(SUCCESS, {rows_read, rows_written: landed, duration_sec})`.
-- **Multi-source union:** read each source, `unionByName(allowMissingColumns=True)`, flag the null-fill, append once, balance against `landed`.
-- **Counter-examples (what NOT to do):**
-  - Do **not** set `rows_written = rows_read` for the balance check - measure `numOutputRows` (the old version made balance always PASS).
-  - Do **not** wrap the append in retry - a partial write + retry duplicates data.
-  - Do **not** reimplement quarantine or schema evolution here - call `dataio.quarantine` / `dataio.schema-evolution`.
+- **Single-source append:** retry-read (materialized) -> apply once -> `landed = result.num_output_rows` -> balance PASS -> `RunResult(SUCCESS, {rows_read, rows_written: landed, duration_sec})`.
+- **Bronze volatile with drift:** `_build_resolution_context` -> `resolve` (rescue/capture mode) -> compatibility allowed -> `clean, drift = capture_drift(df, expected, cfg)` -> apply `clean` once -> quarantine `drift` (`SCHEMA_DRIFT`) -> balance on `clean` only.
+- **Governed change pending approval:** `cfg.require_approval` -> ABC phase-1 `pending` -> quarantine batch (await approval) -> run completes without applying; the change lands on a later approved run.
+- **Counter-examples:** do **not** set `rows_written = rows_read`; do **not** retry the append; do **not** reimplement quarantine/schema-evolution; do **not** read balance from `DESCRIBE HISTORY LIMIT 1` (race).
 
 ## 11. Regeneration contract
-`scaffold-then-edit`: the dataclasses, exceptions, `from_params`, and orchestration are fully generated; the Spark-touching parts (`_read_sources`, `_measure_landed`, the delegate calls) are generated then reviewed against current Delta/Spark APIs.
+`scaffold-then-edit`: dataclasses, exceptions, `from_params`, `_build_resolution_context`, and orchestration are fully generated; the Spark-touching parts and the delegate calls are generated then reviewed against current Delta/Spark APIs.
 
 ## 12. References
-`specs/foundation/contracts-spec.md` (Engine/Reader/LoadStrategy, RunContext/RunResult) · `specs/foundation/abc-sdk-spec.md` (ABC) · `specs/foundation/config-model-spec.md` (Load/Source/TargetConfig) · `specs/dataio/schema-evolution-spec.md` (delegated schema evolution) · `specs/dataio/quarantine-spec.md` (delegated quarantine sink) · `skills/_shared/project-structure.md`.
-Note: `depends_on` includes forward refs `dataio.file-readers` and `dataio.append-strategy` (corrected single-dot ids) - these resolve once those specs are authored; the validator will flag them until then.
+`specs/foundation/contracts-spec.md` (Engine/Reader/LoadStrategy, RunContext/RunResult; **must add `WriteResult` + refine `LoadStrategy.apply(df, target, load, options) -> WriteResult`**) · `specs/foundation/abc-sdk-spec.md` (ABC, two-phase) · `specs/foundation/config-model-spec.md` (**must expose `TargetConfig.layer`, `LoadConfig.source_system_type`**) · `specs/dataio/schema-evolution-spec.md` (the handshake) · `specs/dataio/quarantine-spec.md` (delegated sink) · `skills/_shared/project-structure.md`.
+Note: `depends_on` keeps forward refs `dataio.file-readers` + `dataio.append-strategy` (single-dot ids); the validator flags them until authored - that is the intended signal, not a `pending_deps` field.
