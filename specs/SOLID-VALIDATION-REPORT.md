@@ -1,3 +1,18 @@
+---
+id: docs.solid-validation-report
+title: "SOLID Principles Validation Report"
+owner: EY
+status: draft
+target_path: docs/tracking/
+owning_skill: documentation
+backlog: []
+provides: []
+depends_on: []
+generation_context: []
+acceptance: []
+regeneration: fully-generated
+---
+
 # SOLID Principles Validation Report
 
 **Date:** 2026-06-18  

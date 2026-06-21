@@ -1,3 +1,18 @@
+---
+id: docs.wave-0-complete
+title: "🎉 Wave 0 Foundation: COMPLETE"
+owner: EY
+status: draft
+target_path: docs/tracking/
+owning_skill: documentation
+backlog: []
+provides: []
+depends_on: []
+generation_context: []
+acceptance: []
+regeneration: fully-generated
+---
+
 # 🎉 Wave 0 Foundation: COMPLETE
 
 **Date:** 2026-06-18  

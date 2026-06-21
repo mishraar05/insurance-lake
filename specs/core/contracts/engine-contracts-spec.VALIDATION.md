@@ -1,3 +1,18 @@
+---
+id: validation.engine-contracts-spec-validation
+title: "Validation Report: engine-contracts-spec.md"
+owner: EY
+status: draft
+target_path: docs/validation/
+owning_skill: validation
+backlog: []
+provides: []
+depends_on: []
+generation_context: []
+acceptance: []
+regeneration: fully-generated
+---
+
 # Validation Report: engine-contracts-spec.md
 
 **Spec:** `core/contracts/engine-contracts-spec.md`  

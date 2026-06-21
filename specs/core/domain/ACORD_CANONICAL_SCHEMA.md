@@ -1,33 +1,21 @@
+---
+id: core.domain.ACORD-CANONICAL-SCHEMA
+title: ACORD Canonical Schema
+owner: EY
+status: draft
+target_path: src/core/domain/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/core/domain/ACORD_CANONICAL_SCHEMA.md
+acceptance:
+  - "pytest tests/unit/test_ACORD_CANONICAL_SCHEMA.py"
+regeneration: scaffold-then-edit
+---
+
 # ACORD Canonical Schema
-
----
-
-## Front Matter
-
-```yaml
-id: acord-canonical-schema
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: core
-component: domain
-backlog_ids:
-  - DOM-001  # Define ACORD canonical model
-  - META-002 # Silver layer schema design
-dependencies:
-  - metadata-models-spec
-runtime: Python 3.10+
-purpose: Define ACORD-aligned canonical data model for P&C insurance Silver layer (Party, Policy, Coverage, Claim, Payment, Loss)
-inputs:
-  - ACORD P&C standards (https://www.acord.org/)
-  - PROJECT_CONTEXT.md §4 (ACORD canonical requirement)
-outputs:
-  - Python Pydantic models for ACORD entities
-  - Delta table DDL schemas
-  - Entity relationship documentation
-```
-
----
 
 ## 1. Purpose
 
@@ -686,6 +674,30 @@ COMMENT 'ACORD Loss entity - loss events and reserves';
 ---
 
 ## 5. References
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Internal Documents
 * `metadata-models-spec.md` — metadata model definitions

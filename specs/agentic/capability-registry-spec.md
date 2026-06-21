@@ -57,6 +57,13 @@ def build_plan(spec_ids: list[str], specs_dir: Path) -> list[dict]: ...        #
 ## 5. Design
 The registry is **generated from spec front-matter** - no parallel menu file. The resolver is a topological sort over `depends_on`. Spec-per-feature is validated at load time. The build plan is what the router consumes to drive generation, gating each step.
 
+### SOLID Principles Application
+* **SRP (Single Responsibility)**: Each function has one focused purpose - `load_registry` scans and parses spec files, `menu` transforms capabilities into a grouped menu structure, `resolve_selection` computes dependency closure, `build_plan` performs topological ordering. The `Capability` dataclass is a pure data container with no behavior.
+* **OCP (Open/Closed)**: New capability frameworks or features can be added by updating spec front-matter without modifying the registry code. The parser works with any spec conforming to the front-matter schema. New validation rules can be added to `load_registry` without changing the resolver logic.
+* **LSP (Liskov Substitution)**: The `Capability` dataclass is immutable and type-stable. All registry operations work uniformly on any list of `Capability` objects regardless of their framework/feature values.
+* **ISP (Interface Segregation)**: Clean separation - parsing (`load_registry`), presentation (`menu`), dependency resolution (`resolve_selection`), and build orchestration (`build_plan`) are independent interfaces. Clients only depend on the operations they need (e.g., the UI only calls `menu`, the router only calls `build_plan`).
+* **DIP (Dependency Inversion)**: Depends on abstractions - file paths (`Path`), parsed data structures (`dict`, `list`), not concrete file formats or storage mechanisms. The registry operates on parsed front-matter dictionaries, decoupling it from YAML specifics. Build plan output is a generic dict structure, not coupled to any execution engine.
+
 ## 6. Implementation logic & guidance
 **Logic / algorithm** (source of truth):
 - **Procedure:**
@@ -101,6 +108,7 @@ build_plan(["ingestion.streaming"]) ->
   [foundation.contracts, foundation.config-model, dataio.readers,
    dataio.load-strategy, ingestion.engine, ingestion.streaming]   # foundation-first, ordered
 ```
+Counter-example: Do NOT maintain a separate hand-edited menu file alongside the spec front-matter - this violates single source of truth and will drift out of sync. The menu is always derived from spec front-matter at runtime.
 
 ## 11. Regeneration contract
 `scaffold-then-edit`. The registry **data** (the menu) is always derived from specs (fully-generated at runtime); the resolver **code** is generated once then maintained.

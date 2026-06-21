@@ -1,3 +1,18 @@
+---
+id: validation.odbc-readers-spec-validation
+title: "Validation Report: odbc-readers-spec.md"
+owner: EY
+status: draft
+target_path: docs/validation/
+owning_skill: validation
+backlog: []
+provides: []
+depends_on: []
+generation_context: []
+acceptance: []
+regeneration: fully-generated
+---
+
 # Validation Report: odbc-readers-spec.md
 
 **Spec:** `dataio/readers/odbc-readers-spec.md`  

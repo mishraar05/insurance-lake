@@ -1,40 +1,21 @@
+---
+id: dataio.readers.sap-readers
+title: SAP Readers Spec
+owner: EY
+status: draft
+target_path: src/readers/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/dataio/readers/sap-readers-spec.md
+acceptance:
+  - "pytest tests/unit/test_sap_readers.py"
+regeneration: scaffold-then-edit
+---
+
 # SAP Readers Spec
-
----
-
-## Front Matter
-
-```yaml
-id: sap-readers-spec
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: dataio
-component: readers
-backlog_ids:
-  - DATAIO-005  # SAP reader implementations (optional)
-  - READER-005  # SAP ERP connectors
-dependencies:
-  - metadata-models-spec
-  - engine-contracts-spec
-  - jdbc-readers-spec  # SAP HANA uses JDBC
-runtime: Python 3.10+ with PySpark
-purpose: Implement Reader protocol for SAP systems (SAP HANA via JDBC, optional partner connectors)
-inputs:
-  - Feed metadata (connection details, SAP table/view, extraction options)
-  - engine-contracts-spec (Reader protocol)
-outputs:
-  - SAPHANAReader implementation (JDBC-based)
-  - Guidance for partner SAP connectors (optional)
-  - Unit/integration tests
-tools_required:
-  - PySpark JDBC API (for SAP HANA)
-  - SAP HANA JDBC driver
-  - Databricks Secrets (for credentials)
-  - Optional: Partner SAP connectors (Theobald, CData, etc.)
-```
-
----
 
 ## 1. Purpose
 
@@ -216,6 +197,30 @@ df = reader.read(spark, feed)
 ---
 
 ## 5. Guardrails
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Error Handling
 * **Driver not found** — raise ValueError with installation instructions

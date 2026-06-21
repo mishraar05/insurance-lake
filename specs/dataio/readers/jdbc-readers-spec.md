@@ -1,40 +1,21 @@
+---
+id: dataio.readers.jdbc-readers
+title: JDBC Readers Spec
+owner: EY
+status: draft
+target_path: src/readers/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/dataio/readers/jdbc-readers-spec.md
+acceptance:
+  - "pytest tests/unit/test_jdbc_readers.py"
+regeneration: scaffold-then-edit
+---
+
 # JDBC Readers Spec
-
----
-
-## Front Matter
-
-```yaml
-id: jdbc-readers-spec
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: dataio
-component: readers
-backlog_ids:
-  - DATAIO-002  # JDBC reader implementations
-  - READER-002  # SQL Server, Postgres, Oracle readers
-dependencies:
-  - metadata-models-spec
-  - engine-contracts-spec
-  - file-readers-spec  # Base Reader pattern
-runtime: Python 3.10+ with PySpark
-purpose: Implement Reader protocol for JDBC data sources (SQL Server, Postgres, Oracle, MySQL)
-inputs:
-  - Feed metadata (connection_string, jdbc_options, query/table)
-  - engine-contracts-spec (Reader protocol)
-outputs:
-  - JDBCReader implementation classes
-  - Factory registration for each database type
-  - Connection pooling and secret management
-  - Unit/integration tests
-tools_required:
-  - PySpark JDBC API
-  - Databricks Secrets (for credentials)
-  - JDBC drivers (bundled with Databricks Runtime)
-```
-
----
 
 ## 1. Purpose
 
@@ -508,6 +489,30 @@ feed = Feed(
 ---
 
 ## 5. Guardrails
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Error Handling
 * **Connection failure** — raise ValueError with connection details (without credentials)

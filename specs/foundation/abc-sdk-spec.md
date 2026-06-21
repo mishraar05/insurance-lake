@@ -1,3 +1,30 @@
+---
+id: foundation.abc-sdk
+title: ABC SDK (Audit, Balance, Control)
+owner: EY
+status: active
+target_path: src/core/sdk/
+owning_skill: framework-dev.build-abc-sdk
+backlog: [FND-010, FND-011, FND-013, FND-014]
+provides:
+  - ABC
+  - RunHandle
+  - start_run
+  - end_run
+  - log_audit
+  - log_balance
+  - log_dq
+  - log_exception
+  - log_cost
+depends_on: []
+generation_context:
+  - specs/foundation/abc-sdk-spec.md
+acceptance:
+  - "pytest tests/unit/test_abc_sdk.py"
+  - "pytest tests/integration/test_abc_integration.py"
+regeneration: scaffold-then-edit
+---
+
 # ABC SDK Specification (Audit, Balance, Control)
 
 **Spec ID:** FND-010, FND-011, FND-013, FND-014  
@@ -53,9 +80,120 @@ Every ingestion, transformation, DQ check, and reconciliation writes through the
 
 ---
 
-## 3. Architecture
+## 3. Interface - exact skeleton
 
-### High-Level Design
+```python
+from dataclasses import dataclass
+from pyspark.sql import SparkSession
+from typing import Optional, Dict, List
+import uuid
+from datetime import datetime
+
+@dataclass
+class RunHandle:
+    """Handle returned by start_run()"""
+    run_id: str
+    trace_id: str
+
+class ABC:
+    """
+    ABC SDK - Single interface for Audit/Balance/Control logging.
+    
+    Usage:
+        abc = ABC(catalog="insurelake_abc", schema="abc")
+        run = abc.start_run(component="ingestion", entity="policy", run_type="BATCH_INCREMENTAL")
+        abc.log_audit(run.run_id, {"rows_read": 10000, "rows_written": 9980})
+        abc.end_run(run.run_id, status="SUCCESS")
+    """
+    
+    def __init__(
+        self,
+        catalog: str = "insurelake_abc",
+        schema: str = "abc",
+        spark: Optional[SparkSession] = None
+    ):
+        """Initialize ABC SDK."""
+        pass
+    
+    def start_run(
+        self,
+        component: str,
+        entity: str,
+        run_type: str,
+        trace_id: Optional[str] = None
+    ) -> RunHandle:
+        """
+        Start a new run and return RunHandle.
+        
+        Args:
+            component: Framework component (ingestion, harmonization, dq, etc.)
+            entity: Entity being processed (policy, claim, payment, etc.)
+            run_type: BATCH_FULL, BATCH_INCREMENTAL, STREAM_APPEND, etc.
+            trace_id: Optional trace ID (if propagating from upstream)
+        
+        Returns:
+            RunHandle with run_id and trace_id
+        """
+        pass
+    
+    def end_run(
+        self,
+        run_id: str,
+        status: str,
+        metrics: Optional[Dict] = None
+    ):
+        """
+        Close a run with final status.
+        
+        Args:
+            run_id: Run ID from start_run()
+            status: SUCCESS, FAILED, TIMEOUT
+            metrics: Optional final metrics dict
+        """
+        pass
+    
+    def log_audit(self, run_id: str, metrics: Dict):
+        """Log audit metrics (rows read/written/rejected, timings)."""
+        pass
+    
+    def log_balance(self, run_id: str, checks: List[Dict]):
+        """Log balance checks (count + financial reconciliation)."""
+        pass
+    
+    def log_dq(self, run_id: str, results: List[Dict]):
+        """Log DQ rule outcomes."""
+        pass
+    
+    def log_exception(self, run_id: str, error: Exception):
+        """Log structured exception."""
+        pass
+    
+    def log_cost(self, run_id: str, consumption: Dict):
+        """Log cost and consumption metrics."""
+        pass
+```
+
+---
+
+## 4. Inputs / Outputs
+
+**Inputs:**
+- Component name, entity name, run type
+- Metrics dicts (rows, timings, costs)
+- Balance check specifications
+- DQ rule results
+- Exception objects
+
+**Outputs:**
+- ABC Delta tables in Unity Catalog (`insurelake_abc.abc` schema)
+- RunHandle objects for tracking
+- Warning logs if ABC writes fail (non-blocking)
+
+---
+
+## 5. Design
+
+### Architecture Overview
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -96,13 +234,106 @@ Every ingestion, transformation, DQ check, and reconciliation writes through the
 - **Table Writers**: Internal helpers for each ABC table (Audit, Balance, Control, Cost)
 - **Exception Classes**: `ABCConnectionError`, `ABCWriteError`, `ABCValidationError`
 
----
+### SOLID Principles Application
 
-## 4. Data Model
+**Single Responsibility Principle (SRP):**
+- **ABC class**: Coordinates logging operations, delegates to specialized writers
+- **Table writers**: Each writer handles ONE table (AuditWriter, BalanceWriter, ControlWriter, CostWriter)
+- **RunHandle**: Single purpose - carry run_id and trace_id
+- Example separation:
+  ```python
+  class ABC:
+      def __init__(self):
+          self._audit_writer = AuditWriter()
+          self._balance_writer = BalanceWriter()
+          self._control_writer = ControlWriter()
+          self._cost_writer = CostWriter()
+      
+      def log_audit(self, run_id, metrics):
+          self._audit_writer.write(run_id, metrics)  # Delegates to specialist
+  ```
 
-### ABC Tables (insurelake_abc.abc schema)
+**Open/Closed Principle (OCP):**
+- **Closed for modification**: ABC interface (7 methods) is stable
+- **Open for extension**: New log types via new methods, not modifying existing
+- Example:
+  ```python
+  # Future: Add lineage logging WITHOUT changing existing methods
+  def log_lineage(self, run_id, upstream_ids, downstream_ids):
+      self._lineage_writer.write(run_id, upstream_ids, downstream_ids)
+  # Existing log_audit(), log_balance() unchanged
+  ```
 
-#### Table: abc_audit
+**Liskov Substitution Principle (LSP):**
+- **Writer polymorphism**: All table writers implement same `TableWriter` interface
+- Any writer substitutes for `TableWriter` base
+- Example:
+  ```python
+  class TableWriter(ABC):
+      def write(self, run_id: str, data: Dict) -> None:
+          pass
+  
+  class AuditWriter(TableWriter):
+      def write(self, run_id, data):
+          # Write to abc_audit table
+          pass
+  
+  class BalanceWriter(TableWriter):
+      def write(self, run_id, data):
+          # Write to abc_balance table
+          pass
+  
+  # All writers interchangeable
+  def batch_write(writers: List[TableWriter], run_id, data):
+      for writer in writers:
+          writer.write(run_id, data)  # LSP - any writer works
+  ```
+
+**Interface Segregation Principle (ISP):**
+- **Segregated logging methods**: `log_audit`, `log_balance`, `log_dq`, `log_cost` (not one `log_everything`)
+- Clients call only what they need:
+  - Ingestion engine calls `start_run`, `log_audit`, `log_balance`, `end_run`
+  - DQ engine calls `start_run`, `log_dq`, `end_run`
+  - Cost tracker calls `log_cost` only
+- Counter-example (DON'T DO):
+  ```python
+  # BAD: Fat interface forcing all clients to know all methods
+  class ABC:
+      def log_all(self, audit, balance, dq, cost, exception):
+          # Forces every caller to provide ALL metrics, even if unused
+          pass
+  ```
+
+**Dependency Inversion Principle (DIP):**
+- **ABC depends on abstractions**: `SparkSession` interface (not concrete impl)
+- **Table writers depend on abstraction**: `TableWriter` protocol, not Delta specifics
+- High-level ABC orchestration doesn't depend on low-level Delta writes
+- Example:
+  ```python
+  # High-level ABC depends on abstraction
+  class ABC:
+      def __init__(self, writer_factory: TableWriterFactory):
+          self._writers = writer_factory.create_writers()  # DIP
+      
+      def log_audit(self, run_id, metrics):
+          writer = self._writers["audit"]  # Abstraction
+          writer.write(run_id, metrics)
+  
+  # Low-level implementation
+  class DeltaTableWriterFactory(TableWriterFactory):
+      def create_writers(self):
+          return {
+              "audit": DeltaAuditWriter(),
+              "balance": DeltaBalanceWriter()
+          }
+  # ABC doesn't know it's Delta - could be Iceberg, Hudi, Postgres
+  ```
+
+### Data Model
+
+#### ABC Tables (insurelake_abc.abc schema)
+
+**Table: abc_audit**
 ```sql
 CREATE TABLE insurelake_abc.abc.abc_audit (
   run_id STRING NOT NULL COMMENT 'Unique run identifier (UUID)',
@@ -127,7 +358,7 @@ PARTITIONED BY (DATE(created_ts))
 COMMENT 'Audit trail for all framework runs';
 ```
 
-#### Table: abc_balance
+**Table: abc_balance**
 ```sql
 CREATE TABLE insurelake_abc.abc.abc_balance (
   balance_id STRING NOT NULL COMMENT 'Unique balance check ID',
@@ -150,7 +381,7 @@ PARTITIONED BY (DATE(created_ts))
 COMMENT 'Balance and reconciliation checks';
 ```
 
-#### Table: abc_control
+**Table: abc_control**
 ```sql
 CREATE TABLE insurelake_abc.abc.abc_control (
   control_id STRING NOT NULL COMMENT 'Unique control event ID',
@@ -173,7 +404,7 @@ PARTITIONED BY (DATE(created_ts))
 COMMENT 'Data quality, validation, and exception tracking';
 ```
 
-#### Table: abc_cost
+**Table: abc_cost**
 ```sql
 CREATE TABLE insurelake_abc.abc.abc_cost (
   cost_id STRING NOT NULL COMMENT 'Unique cost entry ID',
@@ -197,168 +428,42 @@ COMMENT 'Cost and consumption tracking (FinOps)';
 
 ---
 
-## 5. Implementation Details
+## 6. Logic / algorithm
 
-### Code Structure
-```
-sdk/
-├── __init__.py              # Export ABC class
-├── abc.py                   # Main ABC SDK class
-├── models/
-│   ├── run_handle.py        # RunHandle dataclass
-│   ├── audit_entry.py       # AuditEntry model
-│   ├── balance_check.py     # BalanceCheck model
-│   ├── control_event.py     # ControlEvent model
-│   └── cost_entry.py        # CostEntry model
-└── exceptions.py            # ABC exception classes
-```
+### Initialization
+1. Accept catalog, schema, Spark session
+2. Test connectivity to Unity Catalog
+3. Verify ABC tables exist
+4. Initialize table writers
 
-### Key Classes
+### start_run() Flow
+1. Generate UUID for `run_id`
+2. Generate or accept `trace_id`
+3. Insert RUNNING status into `abc_audit`
+4. Return `RunHandle(run_id, trace_id)`
 
-#### Class: ABC
-```python
-from dataclasses import dataclass
-from pyspark.sql import SparkSession
-from typing import Optional, Dict, List
-import uuid
-from datetime import datetime
+### Logging Flow (log_audit, log_balance, log_dq, log_cost)
+1. Accept `run_id` and metrics dict
+2. Validate inputs (non-null run_id, valid metric keys)
+3. Upsert into respective table (idempotent on PK)
+4. If write fails: log warning, write to local JSON, continue
 
-@dataclass
-class RunHandle:
-    """Handle returned by start_run()"""
-    run_id: str
-    trace_id: str
+### end_run() Flow
+1. Accept `run_id`, status, optional final metrics
+2. Update `abc_audit` row: set `end_ts`, `duration_seconds`, `status`
+3. Merge any final metrics
+4. Commit
 
-class ABC:
-    """
-    ABC SDK - Single interface for Audit/Balance/Control logging.
-    
-    Usage:
-        abc = ABC(catalog="insurelake_abc", schema="abc")
-        run = abc.start_run(component="ingestion", entity="policy", run_type="BATCH_INCREMENTAL")
-        abc.log_audit(run.run_id, {"rows_read": 10000, "rows_written": 9980})
-        abc.end_run(run.run_id, status="SUCCESS")
-    """
-    
-    def __init__(
-        self,
-        catalog: str = "insurelake_abc",
-        schema: str = "abc",
-        spark: Optional[SparkSession] = None
-    ):
-        """Initialize ABC SDK."""
-        self.catalog = catalog
-        self.schema = schema
-        self.spark = spark or SparkSession.getActiveSession()
-        
-        if not self.spark:
-            raise ABCConnectionError("No active Spark session")
-        
-        # Test connectivity
-        try:
-            self.spark.sql(f"USE CATALOG {self.catalog}")
-            self.spark.sql(f"USE SCHEMA {self.schema}")
-        except Exception as e:
-            raise ABCConnectionError(
-                f"Cannot connect to {self.catalog}.{self.schema}: {str(e)}"
-            )
-    
-    def start_run(
-        self,
-        component: str,
-        entity: str,
-        run_type: str,
-        trace_id: Optional[str] = None
-    ) -> RunHandle:
-        """
-        Start a new run and return RunHandle.
-        
-        Args:
-            component: Framework component (ingestion, harmonization, dq, etc.)
-            entity: Entity being processed (policy, claim, payment, etc.)
-            run_type: BATCH_FULL, BATCH_INCREMENTAL, STREAM_APPEND, etc.
-            trace_id: Optional trace ID (if propagating from upstream)
-        
-        Returns:
-            RunHandle with run_id and trace_id
-        """
-        run_id = str(uuid.uuid4())
-        trace_id = trace_id or str(uuid.uuid4())
-        
-        try:
-            # Insert into abc_audit with status=RUNNING
-            self.spark.sql(f"""
-                INSERT INTO {self.catalog}.{self.schema}.abc_audit
-                VALUES (
-                    '{run_id}',
-                    '{trace_id}',
-                    '{component}',
-                    '{entity}',
-                    '{run_type}',
-                    'RUNNING',
-                    current_timestamp(),
-                    NULL,
-                    NULL,
-                    NULL, NULL, NULL,
-                    current_user(),
-                    NULL,
-                    NULL,
-                    current_timestamp()
-                )
-            """)
-        except Exception as e:
-            # Log warning but don't fail
-            print(f"WARNING: ABC write failed: {e}")
-        
-        return RunHandle(run_id=run_id, trace_id=trace_id)
-    
-    def end_run(
-        self,
-        run_id: str,
-        status: str,
-        metrics: Optional[Dict] = None
-    ):
-        """
-        Close a run with final status.
-        
-        Args:
-            run_id: Run ID from start_run()
-            status: SUCCESS, FAILED, TIMEOUT
-            metrics: Optional final metrics dict
-        """
-        # Implementation...
-    
-    def log_audit(self, run_id: str, metrics: Dict):
-        """Log audit metrics (rows read/written/rejected, timings)."""
-        # Implementation...
-    
-    def log_balance(self, run_id: str, checks: List[Dict]):
-        """Log balance checks (count + financial reconciliation)."""
-        # Implementation...
-    
-    def log_dq(self, run_id: str, results: List[Dict]):
-        """Log DQ rule outcomes."""
-        # Implementation...
-    
-    def log_exception(self, run_id: str, error: Exception):
-        """Log structured exception."""
-        # Implementation...
-    
-    def log_cost(self, run_id: str, consumption: Dict):
-        """Log cost and consumption metrics."""
-        # Implementation...
-```
-
-### Dependencies
-- **PySpark**: For Spark session and SQL execution
-- **dataclasses**: For models
-- **uuid**: For run_id and trace_id generation
-- **datetime**: For timestamps
-- **typing**: For type hints
+### Resilience Strategy
+- **Development/Test**: Raise exceptions immediately
+- **Production**: Downgrade ABC errors to warnings, log locally, continue data pipeline
+- **Local Fallback**: Write ABC entries to local JSON file if Delta writes fail
 
 ---
 
-## 6. Validation Rules
+## 7. Validation, edge cases & versioning
+
+### Validation Rules
 
 1. **Rule 1**: `run_id` must be unique (UUID v4)
    - **On failure:** Raise `ABCValidationError`
@@ -380,7 +485,7 @@ class ABC:
 
 ---
 
-## 7. Error Handling
+## 8. Error handling
 
 ### Error Scenarios
 
@@ -397,7 +502,7 @@ class ABC:
 
 ---
 
-## 8. Testing
+## 9. Testing & acceptance
 
 ### Acceptance Criteria
 - [x] ABC class initializes with valid Spark session
@@ -411,29 +516,29 @@ class ABC:
 
 ### Test Scenarios
 
-#### Scenario 1: Happy path
+**Scenario 1: Happy path**  
 **Given:** Valid Spark session and ABC tables exist  
 **When:** Call start_run(), log_audit(), end_run()  
 **Then:** Entries written to abc_audit table, run marked SUCCESS
 
-#### Scenario 2: ABC write failure
+**Scenario 2: ABC write failure**  
 **Given:** ABC table write fails (permissions issue)  
 **When:** Call log_audit()  
 **Then:** Warning logged, local file written, pipeline continues
 
-#### Scenario 3: Idempotent re-run
+**Scenario 3: Idempotent re-run**  
 **Given:** Run already exists with same run_id  
 **When:** Call end_run() again with same run_id  
 **Then:** Update existing row, do not duplicate
 
-#### Scenario 4: Trace ID propagation
+**Scenario 4: Trace ID propagation**  
 **Given:** start_run() called with trace_id  
 **When:** Pass trace_id to downstream components  
 **Then:** All logs share same trace_id for lineage
 
 ---
 
-## 9. Examples
+## 10. Examples
 
 ### Example 1: Ingestion with full ABC logging
 
@@ -542,10 +647,65 @@ for rule in dq_rules:
 abc.end_run(run.run_id, status="SUCCESS")
 ```
 
+### Example 3: Counter-Example - Blocking on ABC failure (DON'T DO)
+
+```python
+# BAD: Let ABC failures crash the data pipeline
+abc = ABC()
+run = abc.start_run("ingestion", "policy", "BATCH")
+
+try:
+    # Ingestion logic
+    df.write.saveAsTable("insurelake.bronze.policy")
+    
+    # BAD: Raise if ABC write fails
+    abc.log_audit(run.run_id, metrics)  # Crashes pipeline if ABC unavailable
+except Exception as e:
+    raise  # Pipeline fails even if ingestion succeeded
+
+# CORRECT: ABC errors should warn, not fail
+try:
+    abc.log_audit(run.run_id, metrics)
+except ABCWriteError as e:
+    logger.warning(f"ABC logging failed: {e}")
+    # Continue - data pipeline success is independent of ABC
+```
+
 ---
 
-## 10. References
+## 11. Regeneration contract
 
+**Code generation scope:**
+1. **ABC class skeleton**: Generate class with 7 method signatures
+2. **Table writers**: Generate DeltaAuditWriter, DeltaBalanceWriter, etc.
+3. **Exception classes**: Generate ABCConnectionError, ABCWriteError, ABCValidationError
+4. **Unit test scaffolding**: Generate test class with mock Spark fixtures
+
+**Generation inputs:**
+- This spec (markdown)
+- ABC table DDL (§5 Data Model)
+- Method signatures (§3 Interface)
+
+**Generation outputs:**
+- `abc.py` — ABC class
+- `writers/` — Table writer classes
+- `exceptions.py` — Exception classes
+- `models/run_handle.py` — RunHandle dataclass
+- `tests/test_abc.py` — Unit test skeleton
+
+**Regeneration rules:**
+- **Safe to regenerate**: Method signatures, exception classes, test scaffolding
+- **Not safe to regenerate**: Business logic inside methods, custom validation
+- **Partial regeneration**: Update only method signatures when adding new log types
+
+---
+
+## 12. References
+
+### Dependencies
+- None (foundation component)
+
+### External References
 - [FND-010_abc-sdk-interface-spec.md](FND-010_abc-sdk-interface-spec.md) - ABC SDK interface specification
 - [FND-001_config-model-spec.md](FND-001_config-model-spec.md) - Config metadata model
 - [FND-003-COMPLETE.md](../FND-003-COMPLETE.md) - Config Loader SDK (reference implementation)
@@ -553,10 +713,12 @@ abc.end_run(run.run_id, status="SUCCESS")
 - Databricks system tables: `system.billing.usage` for cost data
 - Unity Catalog audit logs
 
+### Related Specs
+- **config-model-spec.md** — Config entities that engines log through ABC
+- **ingestion-engine-spec.md** — Primary consumer of ABC SDK
+- **harmonization-engine-spec.md** — Secondary consumer of ABC SDK
+- **dq-engine-spec.md** — Logs DQ results through ABC
+
 ---
 
-## Revision History
-
-| Date | Author | Changes |
-|------|--------|---------|
-| 2026-06-18 | Framework Team | Initial comprehensive spec based on interface spec |
+**END OF SPEC**

@@ -1,3 +1,18 @@
+---
+id: validation.metadata-to-ddl-spec-validation
+title: "Validation Report: metadata-to-ddl-spec.md"
+owner: EY
+status: draft
+target_path: docs/validation/
+owning_skill: validation
+backlog: []
+provides: []
+depends_on: []
+generation_context: []
+acceptance: []
+regeneration: fully-generated
+---
+
 # Validation Report: metadata-to-ddl-spec.md
 
 **Spec:** `scripts/codegen/metadata-to-ddl-spec.md`  

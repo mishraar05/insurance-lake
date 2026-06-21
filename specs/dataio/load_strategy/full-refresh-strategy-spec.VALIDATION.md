@@ -1,3 +1,18 @@
+---
+id: validation.full-refresh-strategy-spec-validation
+title: "Validation Report: full-refresh-strategy-spec.md"
+owner: EY
+status: draft
+target_path: docs/validation/
+owning_skill: validation
+backlog: []
+provides: []
+depends_on: []
+generation_context: []
+acceptance: []
+regeneration: fully-generated
+---
+
 # Validation Report: full-refresh-strategy-spec.md
 
 **Spec:** `dataio/load_strategy/full-refresh-strategy-spec.md`  

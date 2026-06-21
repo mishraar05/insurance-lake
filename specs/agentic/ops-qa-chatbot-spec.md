@@ -355,6 +355,14 @@ ORDER BY feed_name;
 **Scenario 4: Complex Query**
 * Response: "This is a complex query. Let me break it down: {explanation}. Here's what I found: {result}"
 
+### 5.4 SOLID Principles Application
+
+* **SRP (Single Responsibility)**: The Genie Space has one responsibility - answer operational questions about Insurance Lake metadata. System instructions focus on this single domain. Query translation, error handling, and audit logging are separate concerns handled by dedicated components (Genie NL-to-SQL engine, error response patterns, ABC SDK hooks).
+* **OCP (Open/Closed)**: New question patterns can be added by extending system instructions without modifying the core Genie Space configuration. New metadata tables can be connected without changing existing query patterns. The chatbot is open for extension (new tables, new question types) but closed for modification (core conversational engine is Databricks-managed).
+* **LSP (Liskov Substitution)**: The chatbot interface is substitutable with any conversational query interface that respects the same contract - natural language input, metadata query output, Unity Catalog access control. System instructions define behavior substitutability - any prompt engineering that maintains the operational Q&A contract is valid.
+* **ISP (Interface Segregation)**: The chatbot exposes a single, focused interface - natural language questions about operations. It doesn't expose admin functions (modifying jobs/feeds), data engineering functions (creating pipelines), or general Databricks operations. Users interact only with the metadata query interface they need, segregated from broader platform capabilities.
+* **DIP (Dependency Inversion)**: The chatbot depends on abstractions - metadata table schemas (not specific table implementations), Unity Catalog access policies (not hardcoded user lists), SQL warehouse compute (not a specific cluster). System instructions reference logical concepts (feeds, jobs, DQ rules) not physical table names, allowing for schema evolution without instruction changes.
+
 ---
 
 ## 6. ABC Framework Integration

@@ -1,37 +1,21 @@
+---
+id: dataio.readers.file-readers
+title: File Readers Spec
+owner: EY
+status: draft
+target_path: src/readers/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/dataio/readers/file-readers-spec.md
+acceptance:
+  - "pytest tests/unit/test_file_readers.py"
+regeneration: scaffold-then-edit
+---
+
 # File Readers Spec
-
----
-
-## Front Matter
-
-```yaml
-id: file-readers-spec
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: dataio
-component: readers
-backlog_ids:
-  - DATAIO-001  # File reader implementations
-  - READER-001  # CSV/JSON/Parquet readers
-dependencies:
-  - metadata-models-spec
-  - engine-contracts-spec
-runtime: Python 3.10+ with PySpark
-purpose: Implement Reader protocol for file-based data sources (CSV, JSON, Parquet, Delta, Avro)
-inputs:
-  - Feed metadata (source_location, source_format, file_format_options)
-  - engine-contracts-spec (Reader protocol)
-outputs:
-  - FileReader implementation classes
-  - Factory registration for each format
-  - Unit/integration tests
-tools_required:
-  - PySpark DataFrameReader API
-  - Unity Catalog Volumes (optional)
-```
-
----
 
 ## 1. Purpose
 
@@ -441,6 +425,30 @@ def get_reader(source_format: SourceFormat) -> Reader:
 ---
 
 ## 5. Guardrails
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Error Handling
 * **File not found** — raise FileNotFoundError with full path

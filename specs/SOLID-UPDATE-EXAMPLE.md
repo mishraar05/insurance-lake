@@ -1,3 +1,18 @@
+---
+id: docs.solid-update-example
+title: "SOLID Update Example: contracts-spec.md"
+owner: EY
+status: draft
+target_path: docs/tracking/
+owning_skill: documentation
+backlog: []
+provides: []
+depends_on: []
+generation_context: []
+acceptance: []
+regeneration: fully-generated
+---
+
 # SOLID Update Example: contracts-spec.md
 
 **Purpose:** Show exactly what needs to be added to bring Wave 0/1 specs into compliance with updated templates  

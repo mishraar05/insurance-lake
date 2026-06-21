@@ -1,3 +1,20 @@
+---
+id: foundation.control-tables-ddl
+title: FND-002 - Control Tables DDL Specification
+owner: EY
+status: draft
+target_path: src/core/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/foundation/control-tables-ddl-spec.md
+acceptance:
+  - "pytest tests/unit/test_control_tables_ddl.py"
+regeneration: scaffold-then-edit
+---
+
 # FND-002 - Control Tables DDL Specification
 
 Status: complete · Skill: `framework-dev.build-config-model`

@@ -1,36 +1,21 @@
+---
+id: core.contracts.engine-contracts
+title: Engine Contracts Spec
+owner: EY
+status: draft
+target_path: src/core/contracts/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/core/contracts/engine-contracts-spec.md
+acceptance:
+  - "pytest tests/unit/test_engine_contracts.py"
+regeneration: scaffold-then-edit
+---
+
 # Engine Contracts Spec
-
----
-
-## Front Matter
-
-```yaml
-id: engine-contracts-spec
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: core
-component: contracts
-backlog_ids:
-  - FND-004  # Define framework contracts/interfaces
-  - ARCH-001 # Architecture patterns and protocols
-dependencies:
-  - metadata-models-spec
-runtime: Python 3.10+
-purpose: Define protocol interfaces (Reader, LoadStrategy, Engine, Check, Masker) that all framework implementations must follow
-inputs:
-  - metadata-models-spec.md (imports Feed, Pipeline, DQCheck, etc.)
-  - PROJECT_CONTEXT.md §4 (architecture decisions)
-outputs:
-  - Python Protocol/ABC definitions for all framework contracts
-  - Type-safe interfaces for dependency injection
-  - Documentation of contract requirements
-tools_required:
-  - Python typing.Protocol or abc.ABC
-  - Python typing module
-```
-
----
 
 ## 1. Purpose
 
@@ -551,6 +536,30 @@ class CSVReader:
 ---
 
 ## 5. Guardrails
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Error Handling
 * **Protocol violations** — static type checkers (mypy) catch missing methods at compile time

@@ -1,3 +1,18 @@
+---
+id: validation.metadata-models-spec-validation
+title: "Validation Report: metadata-models-spec.md (Final)"
+owner: EY
+status: draft
+target_path: docs/validation/
+owning_skill: validation
+backlog: []
+provides: []
+depends_on: []
+generation_context: []
+acceptance: []
+regeneration: fully-generated
+---
+
 # Validation Report: metadata-models-spec.md (Final)
 
 **Spec:** `core/metadata/metadata-models-spec.md`  

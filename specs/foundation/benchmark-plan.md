@@ -1,3 +1,20 @@
+---
+id: foundation.benchmark-plan
+title: BENCH-001 - PoC Benchmark Plan
+owner: EY
+status: draft
+target_path: src/core/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/foundation/benchmark-plan.md
+acceptance:
+  - "pytest tests/unit/test_benchmark_plan.py"
+regeneration: scaffold-then-edit
+---
+
 # BENCH-001 - PoC Benchmark Plan
 
 Status: active · 2026-06-18 · Skill: `orchestration.router` · Runs on Databricks.

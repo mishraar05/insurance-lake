@@ -1,3 +1,20 @@
+---
+id: foundation.project-structure
+title: FND-030 - Project Structure Specification (DAB Scaffold)
+owner: EY
+status: draft
+target_path: src/core/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/foundation/project-structure-spec.md
+acceptance:
+  - "pytest tests/unit/test_project_structure.py"
+regeneration: scaffold-then-edit
+---
+
 # FND-030 - Project Structure Specification (DAB Scaffold)
 
 Status: active · 2026-06-18 · Skill: `framework-dev.scaffold-structure`

@@ -1,3 +1,29 @@
+---
+id: foundation.config-model
+title: Metadata / Config Model
+owner: EY
+status: active
+target_path: src/core/metadata/
+owning_skill: framework-dev.build-config-model
+backlog: [FND-001]
+provides:
+  - SourceConfig
+  - TargetConfig
+  - LoadConfig
+  - TransformConfig
+  - DQRuleConfig
+  - ConfigLoader
+depends_on:
+  - abc-sdk-spec
+generation_context:
+  - specs/foundation/config-model-spec.md
+  - specs/foundation/abc-sdk-spec.md
+acceptance:
+  - "pytest tests/unit/test_config_model.py"
+  - "pytest tests/integration/test_config_loader.py"
+regeneration: scaffold-then-edit
+---
+
 # FND-001 - Metadata / Config Model Specification
 
 Status: active · 2026-06-18 · Skill: `framework-dev.build-config-model`
@@ -25,41 +51,133 @@ Define the configuration entities that drive the metadata-driven framework. The 
 - NFR-3: Extensible - new config types added without modifying existing entities
 - NFR-4: Immutable config versions - changes append, never update in place
 
-## 3. Entities (8)
+## 3. Interface - exact skeleton
 
-Implemented in the SDK today: **source, target, load, transform, dq_rule**. Planned (FND-001 design, not yet built): **recon_rule, masking_rule, dependency**.
+```python
+from pydantic import BaseModel
+from typing import Optional, List
+from enum import Enum
 
-### source  (cfg_source)
-Describes a feed's origin. PK `source_id`.
-Fields: source_id, source_name, source_type (FILE|TABLE|STREAM|API|CDC), source_system (PolicyCenter, ClaimCenter, ...), connection_string, file_format (CSV|JSON|PARQUET|AVRO|XML|DELTA|FIXEDWIDTH), schema_location, credential_scope, credential_key, business_domain (POLICY|CLAIM|BILLING|PARTY|PAYMENT|LOSS), pii_flag, data_classification (PUBLIC|INTERNAL|CONFIDENTIAL|RESTRICTED), sla_hours, active_flag, + audit (created_by/ts, updated_by/ts).
+class SourceType(str, Enum):
+    FILE = "FILE"
+    TABLE = "TABLE"
+    STREAM = "STREAM"
+    API = "API"
+    CDC = "CDC"
 
-### target  (cfg_target)
-Describes a destination table. PK `target_id`.
-Fields: target_id, target_name, catalog_name, schema_name, table_name, layer (BRONZE|SILVER|GOLD), table_type (MANAGED|EXTERNAL), format (DELTA), partition_columns[], liquid_clustering_columns[], primary_key[], acord_entity (Party|Policy|Coverage|Claim|Payment|Loss), retention_days, enable_cdf, active_flag, + audit.
+class SourceConfig(BaseModel):
+    source_id: str
+    source_name: str
+    source_type: SourceType
+    source_system: str
+    connection_string: Optional[str]
+    file_format: Optional[str]
+    schema_location: Optional[str]
+    credential_scope: Optional[str]
+    credential_key: Optional[str]
+    business_domain: str
+    pii_flag: bool
+    data_classification: str
+    sla_hours: int
+    active_flag: bool = True
 
-### load  (cfg_load)
-Source -> bronze loading rule. PK `load_id`; FK source_id -> cfg_source, target_id -> cfg_target.
-Fields: load_id, load_name, source_id, target_id, load_type (BATCH_FULL|BATCH_INCREMENTAL|STREAM_APPEND|STREAM_CDC|STREAM_UPSERT), load_pattern (APPEND|OVERWRITE|MERGE|SCD2|CDC), engine (DECLARATIVE|AUTOLOADER|COPY_INTO|STRUCTURED_STREAMING), watermark_column, watermark_type (TIMESTAMP|SEQUENCE|FILENAME), checkpoint_location, trigger_interval, merge_keys, autoloader_options{}, schedule_cron, depends_on, active_flag, + audit.
+class TargetConfig(BaseModel):
+    target_id: str
+    target_name: str
+    catalog_name: str
+    schema_name: str
+    table_name: str
+    layer: str  # BRONZE|SILVER|GOLD
+    table_type: str  # MANAGED|EXTERNAL
+    format: str  # DELTA
+    partition_columns: List[str]
+    liquid_clustering_columns: List[str]
+    primary_key: List[str]
+    acord_entity: Optional[str]
+    retention_days: int
+    enable_cdf: bool
+    active_flag: bool = True
 
-### transform  (cfg_transform)
-Bronze->silver->gold transformation rule. PK `transform_id`; FK source_target_id / destination_target_id -> cfg_target.
-Fields: transform_id, transform_name, source_target_id, destination_target_id, transform_type (SQL|PYTHON|ACORD_MAPPING|LOOKUP|AGGREGATION|PIVOT), transform_sql, transform_python, acord_mapping_template, scd_type (SCD1|SCD2), scd_key_columns, scd_timestamp_column, engine (DECLARATIVE|STRUCTURED_STREAMING|BATCH), dependencies, active_flag, + audit.
+class LoadConfig(BaseModel):
+    load_id: str
+    load_name: str
+    source_id: str
+    target_id: str
+    load_type: str
+    load_pattern: str
+    engine: str
+    watermark_column: Optional[str]
+    watermark_type: Optional[str]
+    checkpoint_location: str
+    trigger_interval: Optional[str]
+    merge_keys: Optional[List[str]]
+    autoloader_options: dict
+    schedule_cron: Optional[str]
+    depends_on: Optional[List[str]]
+    active_flag: bool = True
 
-### dq_rule  (cfg_dq_rule)
-Data-quality rule bound to a target. PK `dq_rule_id`; FK target_id -> cfg_target.
-Fields: dq_rule_id, rule_name, target_id, rule_type (NOT_NULL|UNIQUE|RANGE|REGEX|CUSTOM_SQL|REFERENTIAL_INTEGRITY|FRESHNESS), column_name, rule_expression, threshold_percent (0-1), on_failure (WARN|FAIL|QUARANTINE), active_flag, + audit.
+class TransformConfig(BaseModel):
+    transform_id: str
+    transform_name: str
+    source_target_id: str
+    destination_target_id: str
+    transform_type: str
+    transform_sql: Optional[str]
+    transform_python: Optional[str]
+    acord_mapping_template: Optional[str]
+    scd_type: Optional[str]
+    scd_key_columns: Optional[List[str]]
+    scd_timestamp_column: Optional[str]
+    engine: str
+    dependencies: Optional[List[str]]
+    active_flag: bool = True
 
-### recon_rule  (cfg_recon_rule) - PLANNED
-Reconciliation check. PK `recon_rule_id`.
-Fields: recon_rule_id, rule_name, load_id, target_id, recon_type (ROW_COUNT|CONTROL_TOTAL|CROSS_LAYER|SOURCE_OF_RECORD), source_ref, target_ref, measure_column (for control totals), tolerance_percent, on_break (WARN|FAIL), active_flag, + audit.
+class DQRuleConfig(BaseModel):
+    dq_rule_id: str
+    rule_name: str
+    target_id: str
+    rule_type: str
+    column_name: str
+    rule_expression: Optional[str]
+    threshold_percent: float
+    on_failure: str  # WARN|FAIL|QUARANTINE
+    active_flag: bool = True
 
-### masking_rule  (cfg_masking_rule) - PLANNED
-PII handling. PK `masking_rule_id`; FK target_id.
-Fields: masking_rule_id, rule_name, target_id, column_name, classification (CONFIDENTIAL|RESTRICTED), technique (UC_COLUMN_MASK|ROW_FILTER|TOKENIZE|HASH), mask_function, reversible_flag, active_flag, + audit.
-
-### dependency  (cfg_dependency) - PLANNED
-Normalized DAG edges. PK `dependency_id`.
-Fields: dependency_id, object_type (LOAD|TRANSFORM), object_id, depends_on_id, dependency_type, active_flag, + audit.
+class ConfigLoader:
+    """Loads configuration from Unity Catalog tables."""
+    
+    def get_source(self, source_id: str) -> SourceConfig:
+        """Retrieve source configuration by ID."""
+        pass
+    
+    def get_target(self, target_id: str) -> TargetConfig:
+        """Retrieve target configuration by ID."""
+        pass
+    
+    def get_load(self, load_id: str) -> LoadConfig:
+        """Retrieve load configuration by ID."""
+        pass
+    
+    def get_transform(self, transform_id: str) -> TransformConfig:
+        """Retrieve transform configuration by ID."""
+        pass
+    
+    def get_dq_rule(self, dq_rule_id: str) -> DQRuleConfig:
+        """Retrieve DQ rule configuration by ID."""
+        pass
+    
+    def save_source(self, config: SourceConfig) -> None:
+        """Save source configuration."""
+        pass
+    
+    def save_target(self, config: TargetConfig) -> None:
+        """Save target configuration."""
+        pass
+    
+    def save_load(self, config: LoadConfig) -> None:
+        """Save load configuration."""
+        pass
+```
 
 ## 4. Inputs / Outputs
 - **Inputs:** Config YAML files, admin UI forms, API payloads, migration scripts
@@ -78,7 +196,7 @@ Fields: dependency_id, object_type (LOAD|TRANSFORM), object_id, depends_on_id, d
 - **Loader utilities:** `ConfigLoader` reads from UC tables, returns typed config objects
 - **Validation:** Pydantic validators enforce business rules (section 6)
 
-### SOLID Principles Application (REQUIRED for all components)
+### SOLID Principles Application
 
 **Single Responsibility Principle (SRP):**
 - Each config entity has ONE concern:
@@ -146,336 +264,293 @@ Fields: dependency_id, object_type (LOAD|TRANSFORM), object_id, depends_on_id, d
           # Returns LoadConfig (abstraction)
   ```
 
-### Design Patterns (use where applicable)
+### Design Patterns
+- **Repository pattern:** `ConfigLoader` abstracts config persistence (Delta tables, REST API, etc.)
+- **Factory pattern:** Create reader/writer instances based on `source_type` / `load_pattern`
+- **Strategy pattern:** DQ rule execution strategies (NOT_NULL, RANGE, CUSTOM_SQL)
 
-**Recommended patterns for this component:**
+## 6. Logic / algorithm
 
-1. **Repository Pattern**
-   - Why: Decouple config storage (Delta) from business logic (engines)
-   - Benefit: Swap storage backend without touching engines
-   - Example:
-     ```python
-     class ConfigRepository(ABC):
-         @abstractmethod
-         def get_source(self, source_id: str) -> SourceConfig: ...
-     
-     class UCConfigRepository(ConfigRepository):
-         def get_source(self, source_id: str) -> SourceConfig:
-             df = spark.read.table("cfg_source").filter(f"source_id = '{source_id}'")
-             return SourceConfig(**df.first().asDict())
-     ```
-
-2. **Builder Pattern**
-   - Why: Complex config objects with many optional fields
-   - Benefit: Fluent API for config creation
-   - Example:
-     ```python
-     source = SourceConfigBuilder() \
-         .with_name("PolicyCenter_Policy") \
-         .with_type("FILE") \
-         .with_format("CSV") \
-         .with_classification("CONFIDENTIAL") \
-         .build()
-     ```
-
-3. **Factory Pattern**
-   - Why: Create config objects from different sources (UC tables, YAML, API)
-   - Benefit: Centralized config instantiation logic
-   - Example:
-     ```python
-     class ConfigFactory:
-         @staticmethod
-         def from_table(load_id: str) -> LoadConfig:
-             # Read from UC table
-         
-         @staticmethod
-         def from_yaml(path: str) -> LoadConfig:
-             # Read from YAML file
-     ```
-
-4. **Value Object Pattern**
-   - Why: Config entities are immutable, identity-based
-   - Benefit: Thread-safe, hashable, equality by value
-   - Example:
-     ```python
-     @dataclass(frozen=True)  # Immutable
-     class SourceConfig:
-         source_id: str
-         source_name: str
-         source_type: str
-         # No setters; create new instance to "change"
-     ```
-
-**Extensibility considerations:**
-- **Multi-customer:** Add `customer_id` column to all entities; filter queries by customer context
-- **New config types:** Add new entity table + new Pydantic class (e.g., `AlertRuleConfig`)
-- **Config versioning:** ABC audit framework tracks all changes; engines can query "config as-of timestamp"
-- **Schema evolution:** Delta table schema changes (ADD COLUMN) backward-compatible via Pydantic defaults
-
-## 6. Implementation logic & guidance
-
-**Logic / algorithm:**
-1. **Config DDL:** Create 8 Delta tables in `insurelake_config.config` schema (see section 3)
-2. **Pydantic models:** Define typed classes (`SourceConfig`, `TargetConfig`, etc.) matching table schemas
-3. **ConfigLoader:** Utility class reads from UC tables, returns typed config objects
-4. **Validation layer:** Pydantic validators enforce business rules (see validation rules below)
-
-**Path:** UC tables at `insurelake_config.config.cfg_{source,target,load,transform,dq_rule,recon_rule,masking_rule,dependency}`
-
-**Constraints (hard):**
-- All tables are Delta format
-- All changes audited via ABC framework (who, when, before/after)
-- No direct table modifications (use config loader API)
-- **Follow SOLID principles (see section 5):**
-  - SRP: One entity per concern (source, target, load, transform, dq_rule)
-  - OCP: Extend via new entities, not schema changes
-  - LSP: Config types substitutable (any source_type works where source expected)
-  - ISP: Segregated entities (engines read only what they need)
-  - DIP: Engines depend on ConfigLoader abstraction, not raw Delta tables
-
-## 7. Validation, edge cases & versioning policy
-
-**Key validation rules (enforced by the loader):**
-- FILE sources require file_format and connection_string.
-- PII sources (pii_flag) require CONFIDENTIAL or RESTRICTED classification.
-- partition_columns and liquid_clustering_columns are mutually exclusive.
-- STREAM loads require checkpoint_location.
-- DECLARATIVE engine requires APPEND or SCD2 pattern.
-- MERGE / SCD2 / CDC patterns require merge_keys.
-- transform source_target_id != destination_target_id (no self-transform).
-- SCD2 + DECLARATIVE requires key columns and a timestamp.
-- dq threshold_percent in [0,1]; on_failure in {WARN, FAIL, QUARANTINE}.
-- non-CUSTOM_SQL dq rules require column_name.
-- All FKs validated on load (ForeignKeyError); dependency graphs checked for cycles (CircularDependencyError).
-
-**Versioning & change audit (FND-005):**
-Every insert/update/delete to a config table writes a change record (who, when, before/after) to ABC. Config is versioned so a run can be reproduced against the config as-of a point in time.
-
-**Edge cases:**
-- **Circular dependencies:** Dependency graph validation rejects cycles
-- **Missing FKs:** Load fails with clear error (source_id not found in cfg_source)
-- **Schema drift:** Delta tables support ADD COLUMN (backward-compatible via Pydantic defaults)
-
-## 8. Error handling
-
-**Validation errors:**
-- `ConfigValidationError`: Business rule violation (e.g., PII without classification)
-- `ForeignKeyError`: FK constraint violated (e.g., load.source_id not in cfg_source)
-- `CircularDependencyError`: Dependency cycle detected
-
-**Handling:**
-- Config loader validates on read; raises typed exceptions
-- Engines catch exceptions, log structured error, fail fast
-- ABC audit logs all validation failures
-
-## 9. Testing & acceptance
-
-### Acceptance Criteria
-- [ ] All 8 entity tables created in `insurelake_config.config` schema
-- [ ] Pydantic models defined for all entities
-- [ ] ConfigLoader reads from UC tables and returns typed objects
-- [ ] Validation rules enforced (FK checks, business rules)
-- [ ] ABC audit integration working (who, when, before/after)
-- [ ] **SOLID compliance verified:**
-  - [ ] SRP: Each entity has single concern (manual review)
-  - [ ] OCP: New config types added as new entities, not schema changes (manual review)
-  - [ ] LSP: Config types substitutable (test polymorphism)
-  - [ ] ISP: Engines read segregated entities (no fat config table)
-  - [ ] DIP: Engines depend on ConfigLoader abstraction (test mock injection)
-
-### Testing SOLID compliance
-
-**SRP (Single Responsibility) Tests:**
+### Config Loading Flow
 ```python
-def test_entity_separation():
-    # Each entity has ONE concern
-    source = config_loader.get_source("SRC001")
-    assert "load_pattern" not in source  # Load pattern is in cfg_load, not cfg_source
-    assert "dq_rule_type" not in source  # DQ rules are in cfg_dq_rule, not cfg_source
-```
+# 1. Read config from UC tables
+loader = UCConfigLoader(spark)
+load_cfg = loader.get_load("load_001")
 
-**OCP (Open/Closed) Tests:**
-```python
-def test_new_source_type_extension():
-    # Adding new source_type doesn't break existing code
-    new_source = SourceConfig(
-        source_id="SRC999",
-        source_name="NewAPI",
-        source_type="GRAPHQL",  # New type!
-        # ... other fields
-    )
-    # Existing engines still work (OCP)
-    engine = IngestionEngine(config_loader)
-    engine.run(load_id="LOAD001")  # No changes needed
-```
-
-**LSP (Liskov Substitution) Tests:**
-```python
-def test_source_type_substitutability():
-    # Any source_type can be used where source expected
-    sources = [
-        config_loader.get_source("FILE_SOURCE"),
-        config_loader.get_source("TABLE_SOURCE"),
-        config_loader.get_source("API_SOURCE"),
-    ]
-    for source in sources:
-        # Same interface, different types
-        assert hasattr(source, "source_name")
-        assert hasattr(source, "source_type")
-        # All work with engine (substitutable)
-        reader = ReaderFactory.create(source)
-        df = reader.read()
-```
-
-**ISP (Interface Segregation) Tests:**
-```python
-def test_engine_reads_only_needed_config():
-    # Ingestion engine reads source + load, NOT transform or dq
-    class MockConfigLoader:
-        def get_source(self, source_id): return SourceConfig(...)
-        def get_load(self, load_id): return LoadConfig(...)
-        # No get_transform, get_dq_rule methods
-    
-    engine = IngestionEngine(MockConfigLoader())
-    engine.run(load_id="LOAD001")  # Works without transform/dq config
-```
-
-**DIP (Dependency Inversion) Tests:**
-```python
-def test_engine_depends_on_abstraction():
-    # Engine accepts ConfigLoader abstraction, not concrete UC implementation
-    class MockConfigLoader(ConfigLoader):
-        def get_source(self, source_id):
-            return SourceConfig(source_id=source_id, source_name="Mock", ...)
-    
-    mock_loader = MockConfigLoader()
-    engine = IngestionEngine(config_loader=mock_loader)  # DIP - abstraction
-    result = engine.run(load_id="LOAD001")
-    assert result.status == "SUCCESS"
-```
-
-## 10. Examples
-
-**Conformant config loading:**
-```python
-# Repository pattern + DIP
-loader = UCConfigRepository(spark)
-load_cfg = loader.get_load("LOAD001")
+# 2. Resolve dependencies (FK traversal)
 source_cfg = loader.get_source(load_cfg.source_id)
 target_cfg = loader.get_target(load_cfg.target_id)
 
-# Engine depends on abstraction (ConfigRepository), not UC tables
-engine = IngestionEngine(config_repository=loader)
-result = engine.run(load_id="LOAD001")
+# 3. Build execution plan
+if load_cfg.engine == "DECLARATIVE":
+    pipeline = DeclarativePipeline(source_cfg, target_cfg, load_cfg)
+elif load_cfg.engine == "AUTOLOADER":
+    pipeline = AutoLoaderPipeline(source_cfg, target_cfg, load_cfg)
+
+# 4. Execute
+pipeline.run()
 ```
 
-**Builder pattern for config creation:**
+### Config Validation Rules
+- **FK integrity:** All foreign keys must resolve (source_id in cfg_source, target_id in cfg_target)
+- **Enum validation:** `source_type`, `load_pattern`, `engine` must be valid enum values
+- **Business rules:**
+  - STREAM_* load_types require `watermark_column`
+  - SCD2 load_pattern requires `merge_keys`
+  - DECLARATIVE engine requires `checkpoint_location`
+- **Naming conventions:**
+  - `source_name`: alphanumeric + underscores, no spaces
+  - `table_name`: UC-compliant (catalog.schema.table)
+
+### Config Versioning
+Every change to config tables triggers ABC audit:
 ```python
-source = SourceConfigBuilder() \
-    .with_id("SRC001") \
-    .with_name("PolicyCenter_Policy") \
-    .with_type("FILE") \
-    .with_format("CSV") \
-    .with_classification("CONFIDENTIAL") \
-    .with_pii_flag(True) \
-    .build()
+# Before update
+old_cfg = get_config("load_001")
+
+# Update
+update_config("load_001", {"schedule_cron": "0 8 * * *"})
+
+# ABC audit captures change
+abc_sdk.audit(
+    event="config_update",
+    entity_type="load",
+    entity_id="load_001",
+    before=old_cfg,
+    after=new_cfg,
+    changed_by=current_user()
+)
 ```
 
-### SOLID Example: Good vs. Bad
+### Multi-Customer Isolation
+Two strategies:
+1. **Catalog-level:** Each customer gets own catalog (`customer_a`, `customer_b`)
+2. **Schema-level:** Shared catalog, customer-specific schema (`insurelake_config.customer_a`, `insurelake_config.customer_b`)
 
-**❌ BAD (Violates SOLID):**
+Recommended: **Schema-level** (simpler, lower overhead)
+
+## 7. Validation, edge cases & versioning
+
+### Edge Cases
+
+**EC-1: Missing source file**
+- Scenario: `source.file_format = CSV`, but file doesn't exist
+- Handling: Fail fast at config load time (pre-execution validation)
+- Validation: `FileSourceValidator.check_path_exists(source)`
+
+**EC-2: Schema mismatch**
+- Scenario: Source schema changed, target schema outdated
+- Handling: Detect via schema evolution (Auto Loader), log warning, optionally fail
+- Validation: `SchemaValidator.compare(source_schema, target_schema)`
+
+**EC-3: Circular dependencies**
+- Scenario: load_A depends on transform_B, transform_B depends on load_A
+- Handling: Topological sort at runtime, fail if cycle detected
+- Validation: `DependencyValidator.detect_cycles(dependency_graph)`
+
+**EC-4: Orphaned config**
+- Scenario: `load_id` references deleted `source_id`
+- Handling: Soft delete (set `active_flag = false`), cascade to dependents
+- Validation: `FKValidator.check_orphans()`
+
+**EC-5: Invalid cron expression**
+- Scenario: `schedule_cron = "invalid"`
+- Handling: Validate at save time using cron parser
+- Validation: `CronValidator.parse(schedule_cron)`
+
+### Versioning Policy
+- **Config schema versioning:** Backward-compatible changes only (add columns, never drop)
+- **Config data versioning:** Immutable history (ABC audit), soft deletes
+- **SDK versioning:** Semantic versioning (MAJOR.MINOR.PATCH)
+
+### Migration Strategy
+When adding new config entities or fields:
+1. **Schema migration:** ALTER TABLE ADD COLUMN (nullable)
+2. **Backfill:** Populate defaults for existing rows
+3. **SDK update:** New Pydantic models, bump MINOR version
+4. **Documentation:** Update this spec
+
+## 8. Error handling
+
+### Config Load Errors
 ```python
-# Violates ISP - fat config table
-CREATE TABLE cfg_everything (
-    source_id STRING,
-    source_name STRING,
-    source_type STRING,
-    target_id STRING,
-    target_name STRING,
-    layer STRING,
-    load_pattern STRING,
-    engine STRING,
-    dq_rule_type STRING,
-    dq_threshold FLOAT,
-    transform_sql STRING,
-    masking_technique STRING
-    -- 50+ columns mixing all concerns!
-);
+try:
+    load_cfg = loader.get_load("load_001")
+except ConfigNotFoundError as e:
+    logger.error(f"Config not found: {e.load_id}")
+    abc_sdk.audit(event="config_load_error", error=str(e))
+    raise
 
-# Problem 1: Every engine reads massive table with unused columns
-class IngestionEngine:
-    def run(self, config_id):
-        # Must read ALL columns even though only need source + target + load
-        cfg = spark.read.table("cfg_everything").filter(f"id = '{config_id}'").first()
-        # Violates ISP - forced to see transform_sql, dq_rule_type, masking_technique
+except FKViolationError as e:
+    logger.error(f"FK violation: {e.fk_name} -> {e.fk_value}")
+    abc_sdk.audit(event="fk_violation", error=str(e))
+    raise
 
-# Problem 2: Violates SRP - one table, many reasons to change
-# Adding a new DQ rule type touches the same table as adding a new source type
-
-# Problem 3: Violates DIP - engine tightly coupled to cfg_everything schema
-class IngestionEngine:
-    def run(self, config_id):
-        cfg = spark.read.table("cfg_everything")  # Hard-coded table name!
-        # Can't swap config storage (e.g., REST API, YAML files)
+except ValidationError as e:
+    logger.error(f"Validation failed: {e.errors()}")
+    abc_sdk.audit(event="validation_error", errors=e.errors())
+    raise
 ```
 
-**✅ GOOD (Follows SOLID):**
+### Config Update Errors
 ```python
-# Follows ISP - segregated entities
-CREATE TABLE cfg_source (...);  # Source concerns only
-CREATE TABLE cfg_target (...);  # Target concerns only
-CREATE TABLE cfg_load (...);    # Load concerns only
-CREATE TABLE cfg_dq_rule (...); # DQ concerns only
+try:
+    update_config("load_001", changes)
+except ImmutableFieldError as e:
+    logger.error(f"Cannot modify immutable field: {e.field_name}")
+    return {"status": "error", "message": "PK fields are immutable"}
 
-# Follows SRP - each entity has ONE reason to change
-# Adding new DQ rule type: only cfg_dq_rule changes
-# Adding new source type: only cfg_source changes
-
-# Follows DIP - engine depends on abstraction (ConfigRepository)
-class ConfigRepository(ABC):
-    @abstractmethod
-    def get_source(self, source_id: str) -> SourceConfig: ...
-    @abstractmethod
-    def get_load(self, load_id: str) -> LoadConfig: ...
-
-class UCConfigRepository(ConfigRepository):
-    def get_source(self, source_id: str) -> SourceConfig:
-        df = spark.read.table("insurelake_config.config.cfg_source")
-        return SourceConfig(**df.filter(f"source_id = '{source_id}'").first().asDict())
-
-# Engine depends on abstraction
-class IngestionEngine:
-    def __init__(self, config_repo: ConfigRepository):  # DIP - abstraction
-        self._repo = config_repo
-    
-    def run(self, load_id: str):
-        load_cfg = self._repo.get_load(load_id)
-        source_cfg = self._repo.get_source(load_cfg.source_id)
-        # Engine doesn't know config comes from UC tables
-
-# Usage - can inject different implementations
-prod_engine = IngestionEngine(config_repo=UCConfigRepository(spark))
-test_engine = IngestionEngine(config_repo=MockConfigRepository())
+except InvalidEnumError as e:
+    logger.error(f"Invalid enum value: {e.field_name} = {e.value}")
+    return {"status": "error", "message": f"Valid values: {e.valid_values}"}
 ```
 
-**Key Differences:**
-* **BAD:** Fat config table, all concerns mixed, tight coupling to UC tables
-* **GOOD:** Segregated entities, single responsibility, abstraction via repository
+## 9. Testing & acceptance
 
-**Benefits of GOOD approach:**
-1. **Testability:** Inject mock config repository for unit tests
-2. **Flexibility:** Swap config storage (UC → REST API) without changing engines
-3. **Maintainability:** Changes to DQ rules don't affect source/target/load schemas
-4. **Performance:** Engines read only needed tables (source + load for ingestion, not transform/dq)
+### Unit Tests
+**UT-1: Config CRUD**
+- Test: Create source, target, load; read back; update; delete
+- Expected: All operations succeed, ABC audit records written
+
+**UT-2: FK validation**
+- Test: Create load with invalid source_id
+- Expected: FKViolationError raised
+
+**UT-3: Enum validation**
+- Test: Create source with invalid source_type
+- Expected: ValidationError raised
+
+**UT-4: Business rules**
+- Test: Create STREAM load without watermark_column
+- Expected: ValidationError raised
+
+### Integration Tests
+**IT-1: End-to-end config flow**
+- Setup: Create source + target + load configs
+- Execute: Load data using config
+- Validate: Data lands in target table
+
+**IT-2: Config versioning**
+- Setup: Create load config
+- Action: Update schedule_cron
+- Validate: ABC audit captures before/after
+
+**IT-3: Dependency resolution**
+- Setup: Create load_A depends on transform_B
+- Execute: Run load_A
+- Validate: transform_B runs first
+
+### Acceptance Criteria
+**AC-1:** All 8 config entities defined in Delta tables (5 implemented, 3 planned)
+**AC-2:** Pydantic models for all entities, validated
+**AC-3:** ConfigLoader reads from UC, returns typed objects
+**AC-4:** FK integrity enforced (no orphans)
+**AC-5:** All config changes audited via ABC
+**AC-6:** 95%+ unit test coverage on config layer
+
+## 10. Examples
+
+### Example 1: Create Source Config
+```python
+source = SourceConfig(
+    source_id="src_001",
+    source_name="policies_salesforce",
+    source_type="API",
+    source_system="Salesforce",
+    connection_string="https://api.salesforce.com/policies",
+    file_format="JSON",
+    business_domain="POLICY",
+    pii_flag=True,
+    data_classification="CONFIDENTIAL",
+    sla_hours=4,
+    active_flag=True
+)
+loader.save_source(source)
+```
+
+### Example 2: Create Target Config
+```python
+target = TargetConfig(
+    target_id="tgt_001",
+    target_name="policies_bronze",
+    catalog_name="insurelake",
+    schema_name="bronze",
+    table_name="policies_raw",
+    layer="BRONZE",
+    table_type="MANAGED",
+    format="DELTA",
+    partition_columns=["ingest_date"],
+    liquid_clustering_columns=["policy_number"],
+    primary_key=["policy_id"],
+    acord_entity="Policy",
+    retention_days=365,
+    enable_cdf=True,
+    active_flag=True
+)
+loader.save_target(target)
+```
+
+### Example 3: Invalid FK Reference (Counter-Example)
+```python
+# BAD: Creating load with non-existent source_id
+load = LoadConfig(
+    load_id="load_001",
+    load_name="ingest_policies",
+    source_id="src_999",  # DOES NOT EXIST
+    target_id="tgt_001",
+    load_type="BATCH_INCREMENTAL",
+    load_pattern="APPEND",
+    engine="AUTOLOADER"
+)
+
+# Expected behavior:
+try:
+    loader.save_load(load)
+except FKViolationError as e:
+    print(f"FK violation: source_id 'src_999' not found")
+    # Correct approach: Create source first, or use existing source_id
+```
 
 ## 11. Regeneration contract
-`regeneration: scaffold-then-edit`. DDL scripts are generated from this spec, but config data (INSERT statements) is hand-maintained. UC tables are ONE-TIME created; schema evolution via ALTER TABLE ADD COLUMN.
+
+**Code generation scope:**
+1. **Delta table DDL:** Generate CREATE TABLE statements for all 8 entities (§3)
+2. **Pydantic models:** Generate Python classes (`SourceConfig`, `TargetConfig`, etc.)
+3. **ConfigLoader:** Generate skeleton loader class with CRUD methods
+4. **Validation logic:** Generate Pydantic validators for business rules (§7)
+
+**Generation inputs:**
+- This spec (markdown)
+- Entity field definitions (§3)
+- Validation rules (§7)
+
+**Generation outputs:**
+- `config_tables.sql` — DDL for all config tables
+- `config_models.py` — Pydantic models
+- `config_loader.py` — ConfigLoader class
+- `config_validators.py` — Validation functions
+
+**Regeneration rules:**
+- **Safe to regenerate:** DDL, Pydantic models (schema-driven)
+- **Not safe to regenerate:** Custom validation logic, business-specific transformations
+- **Partial regeneration:** Update only DDL when adding new fields
 
 ## 12. References
-- `foundation/contracts-spec.md` — Config entities consumed via `SourceConfig`, `TargetConfig`, etc.
-- `foundation/abc-sdk-spec.md` — All config changes audited via ABC framework
-- `../../skills/_shared/standards.md` — Repository pattern, validation, error handling
+
+### Dependencies
+- **abc-sdk-spec.md** — Audit, Balance, Cost tracking hooks used for config versioning
+
+### External References
+- [Unity Catalog Best Practices](https://docs.databricks.com/en/data-governance/unity-catalog/best-practices.html)
+- [Delta Lake Table Properties](https://docs.delta.io/latest/table-properties.html)
+- [Pydantic Models](https://docs.pydantic.dev/latest/concepts/models/)
+
+### Related Specs
+- **metadata-models-spec.md** — Runtime state models (Feed, Job, AuditLog)
+- **control-tables-ddl-spec.md** — SQL DDL for config tables
+- **ingestion-engine-spec.md** — Consumes source + load configs
+- **harmonization-engine-spec.md** — Consumes transform configs
 
 ---
 
-**SOLID Compliance:** ✅ Updated 2026-06-18 - Comprehensive SOLID principles documented for config model design.
+**END OF SPEC**

@@ -1,37 +1,21 @@
+---
+id: scripts.codegen.metadata-to-ddl
+title: Metadata-to-DDL Codegen Spec
+owner: EY
+status: draft
+target_path: scripts/codegen/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/scripts/codegen/metadata-to-ddl-spec.md
+acceptance:
+  - "pytest tests/unit/test_metadata_to_ddl.py"
+regeneration: scaffold-then-edit
+---
+
 # Metadata-to-DDL Codegen Spec
-
----
-
-## Front Matter
-
-```yaml
-id: metadata-to-ddl-spec
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: scripts
-component: codegen
-backlog_ids:
-  - FND-005    # Code generation tooling
-  - CODEGEN-001 # Metadata DDL generation
-dependencies:
-  - metadata-models-spec
-runtime: Python 3.10+
-purpose: Generate Delta table DDL and JSON schemas from Pydantic metadata models, ensuring ABC metadata tables match Python models (single source of truth)
-inputs:
-  - core/metadata/models.py (Pydantic models)
-  - core/domain/acord_models.py (ACORD entities)
-outputs:
-  - SQL DDL files for ABC metadata tables
-  - JSON schema files for validation
-  - Validation report comparing DB schemas to Python models
-tools_required:
-  - Python inspect module
-  - Pydantic model introspection
-  - JSON Schema generation (pydantic.json_schema)
-```
-
----
 
 ## 1. Purpose
 
@@ -457,6 +441,30 @@ COMMENT 'ABC metadata table for Feed';
 ---
 
 ## 5. Guardrails
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Error Handling
 * **Unsupported types** — raise `ValueError` with clear message listing supported types

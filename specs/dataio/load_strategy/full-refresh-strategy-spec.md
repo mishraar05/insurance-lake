@@ -1,40 +1,21 @@
+---
+id: dataio.load_strategy.full-refresh-strategy
+title: Full Refresh Strategy Spec
+owner: EY
+status: draft
+target_path: src/load_strategy/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/dataio/load_strategy/full-refresh-strategy-spec.md
+acceptance:
+  - "pytest tests/unit/test_full_refresh_strategy.py"
+regeneration: scaffold-then-edit
+---
+
 # Full Refresh Strategy Spec
-
----
-
-## Front Matter
-
-```yaml
-id: full-refresh-strategy-spec
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: dataio
-component: load_strategy
-backlog_ids:
-  - DATAIO-013  # Full refresh strategy implementation
-  - LOADSTRAT-004  # Complete table reload
-dependencies:
-  - metadata-models-spec
-  - engine-contracts-spec
-runtime: Python 3.10+ with PySpark + Delta Lake
-purpose: Implement LoadStrategy protocol for full refresh (truncate and reload)
-inputs:
-  - DataFrame to write
-  - Target table FQN
-  - Primary keys (not used for full refresh)
-  - Partition columns (optional)
-  - Execution mode (declarative | imperative)
-outputs:
-  - FullRefreshStrategy implementation
-  - Factory registration
-  - Unit/integration tests
-tools_required:
-  - PySpark DataFrame API
-  - Delta Lake (for ACID guarantees)
-```
-
----
 
 ## 1. Purpose
 
@@ -341,6 +322,30 @@ strategy.write(
 ---
 
 ## 5. Guardrails
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Error Handling
 * **Table not found** — CREATE TABLE IF NOT EXISTS ensures table exists

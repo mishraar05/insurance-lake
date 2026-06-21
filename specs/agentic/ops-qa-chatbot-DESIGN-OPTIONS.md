@@ -1,3 +1,20 @@
+---
+id: agentic.ops-qa-chatbot-DESIGN-OPTIONS
+title: Ops Q&A Chatbot — Design Options
+owner: EY
+status: draft
+target_path: src/agentic/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/agentic/ops-qa-chatbot-DESIGN-OPTIONS.md
+acceptance:
+  - "pytest tests/unit/test_ops_qa_chatbot_DESIGN_OPTIONS.py"
+regeneration: scaffold-then-edit
+---
+
 # Ops Q&A Chatbot — Design Options
 
 **Purpose:** Evaluate architectural approaches for the Insurance Lake Ops Q&A Chatbot  

@@ -1,3 +1,20 @@
+---
+id: agentic.framework-builder-bot-DESIGN-OPTIONS
+title: Framework Builder Bot — Design Options
+owner: EY
+status: draft
+target_path: src/agentic/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/agentic/framework-builder-bot-DESIGN-OPTIONS.md
+acceptance:
+  - "pytest tests/unit/test_framework_builder_bot_DESIGN_OPTIONS.py"
+regeneration: scaffold-then-edit
+---
+
 # Framework Builder Bot — Design Options
 
 **Purpose:** Evaluate architectural approaches for the Insurance Lake Framework Builder Bot  

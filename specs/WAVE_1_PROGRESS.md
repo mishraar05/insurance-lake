@@ -1,3 +1,18 @@
+---
+id: docs.wave-1-progress
+title: "Wave 1 Progress Tracker"
+owner: EY
+status: draft
+target_path: docs/tracking/
+owning_skill: documentation
+backlog: []
+provides: []
+depends_on: []
+generation_context: []
+acceptance: []
+regeneration: fully-generated
+---
+
 # Wave 1 Progress Tracker
 
 **Date:** 2026-06-18  

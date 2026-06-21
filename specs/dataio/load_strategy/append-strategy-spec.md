@@ -1,40 +1,21 @@
+---
+id: dataio.load_strategy.append-strategy
+title: Append Strategy Spec
+owner: EY
+status: draft
+target_path: src/load_strategy/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/dataio/load_strategy/append-strategy-spec.md
+acceptance:
+  - "pytest tests/unit/test_append_strategy.py"
+regeneration: scaffold-then-edit
+---
+
 # Append Strategy Spec
-
----
-
-## Front Matter
-
-```yaml
-id: append-strategy-spec
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: dataio
-component: load_strategy
-backlog_ids:
-  - DATAIO-010  # Load strategy implementations
-  - LOADSTRAT-001  # Append strategy
-dependencies:
-  - metadata-models-spec
-  - engine-contracts-spec
-runtime: Python 3.10+ with PySpark + Delta Lake
-purpose: Implement LoadStrategy protocol for append-only data loading
-inputs:
-  - DataFrame to write
-  - Target table FQN
-  - Partition columns (optional)
-  - Execution mode (declarative | imperative)
-outputs:
-  - AppendStrategy implementation
-  - Factory registration
-  - Unit/integration tests
-tools_required:
-  - PySpark DataFrame API
-  - Delta Lake (for imperative mode)
-  - Lakeflow SDP streaming tables (for declarative mode, future)
-```
-
----
 
 ## 1. Purpose
 
@@ -331,6 +312,30 @@ spark.sql(ddl)
 ---
 
 ## 5. Guardrails
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Error Handling
 * **Table not found** — CREATE TABLE IF NOT EXISTS ensures table exists

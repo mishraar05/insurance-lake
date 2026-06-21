@@ -1,39 +1,21 @@
+---
+id: dataio.readers.odbc-readers
+title: ODBC Readers Spec
+owner: EY
+status: draft
+target_path: src/readers/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/dataio/readers/odbc-readers-spec.md
+acceptance:
+  - "pytest tests/unit/test_odbc_readers.py"
+regeneration: scaffold-then-edit
+---
+
 # ODBC Readers Spec
-
----
-
-## Front Matter
-
-```yaml
-id: odbc-readers-spec
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: dataio
-component: readers
-backlog_ids:
-  - DATAIO-006  # ODBC reader implementations (optional)
-  - READER-006  # ODBC connectors for legacy systems
-dependencies:
-  - metadata-models-spec
-  - engine-contracts-spec
-  - jdbc-readers-spec  # Similar pattern
-runtime: Python 3.10+ with PySpark
-purpose: Implement Reader protocol for ODBC data sources (legacy databases, proprietary systems)
-inputs:
-  - Feed metadata (connection_string, odbc_driver, query/table)
-  - engine-contracts-spec (Reader protocol)
-outputs:
-  - ODBCReader implementation
-  - pyodbc integration for PySpark
-  - Unit/integration tests
-tools_required:
-  - pyodbc library
-  - ODBC drivers (installed on cluster)
-  - Databricks Secrets (for credentials)
-```
-
----
 
 ## 1. Purpose
 
@@ -347,6 +329,30 @@ df = reader.read(spark, feed)
 ---
 
 ## 5. Guardrails
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Error Handling
 * **Driver not found** — raise ValueError with driver name and installation instructions

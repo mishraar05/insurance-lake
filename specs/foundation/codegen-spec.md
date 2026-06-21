@@ -52,6 +52,13 @@ def main(argv: list | None = None) -> int: ... # CLI entry: [--check]
 ## 5. Design
 Introspect with `typing.get_type_hints` + `dataclasses.fields`. Use an **explicit `TABLE` map** (model name -> table) to avoid CamelCase->snake edge cases (e.g. `DQRuleConfig`->`cfg_dq_rule`), and an explicit `FK_MAP`. Deterministic ordering = `MODELS` order then field order.
 
+### SOLID Principles Application
+* **SRP (Single Responsibility)**: Each function has one focused purpose - `sql_type` maps Python types to SQL types, `model_to_ddl` generates DDL for one model, `model_to_jsonschema` generates JSON schema for one model, `generate` orchestrates output writing, `main` handles CLI. Type mapping, DDL generation, and JSON schema generation are cleanly separated.
+* **OCP (Open/Closed)**: New Python types can be added to `TYPE_MAP` without modifying the type mapping logic. New models are automatically included when added to `MODELS` without changing the generator. The explicit `TABLE` and `FK_MAP` dictionaries allow extending mappings without code changes.
+* **LSP (Liskov Substitution)**: All model introspection operates on standard Python `dataclass` protocol. Any dataclass conforming to the expected structure (first field is PK, type hints present) is substitutable in the pipeline.
+* **ISP (Interface Segregation)**: Clean separation between type mapping (`sql_type`), model-level generation (`model_to_ddl`, `model_to_jsonschema`), orchestration (`generate`), and CLI (`main`). Each function exposes only the interface its callers need, with no coupling to implementation details.
+* **DIP (Dependency Inversion)**: Depends on abstractions - Python's `typing` and `dataclasses` protocols, not concrete implementations. The generator works with any dataclass structure, and outputs are format-agnostic strings/dicts that can be written to any destination. Explicit `TABLE` and `FK_MAP` dictionaries inject external configuration rather than hardcoding it.
+
 ## 6. Implementation logic & guidance
 **Logic / algorithm** (source of truth - the generator translates this):
 - **Procedure:**
@@ -94,6 +101,7 @@ CREATE TABLE IF NOT EXISTS insurelake_config.config.cfg_source (
   CONSTRAINT pk_cfg_source PRIMARY KEY (source_id)
 ) USING DELTA;
 ```
+Counter-example: Do NOT hardcode table names or FK relationships in the generation logic - use the explicit `TABLE` and `FK_MAP` configuration dictionaries to maintain separation of concerns and allow extension without code changes.
 
 ## 11. Regeneration contract
 `regeneration: fully-generated`. The tool **and its outputs** (`conf/ddl/control_tables.sql`, `conf/metadata/_schema.json`) are generated - never hand-edit the outputs; change the models and regenerate.

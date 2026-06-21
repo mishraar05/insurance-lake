@@ -1,39 +1,21 @@
+---
+id: dataio.readers.streaming-readers
+title: Streaming Readers Spec
+owner: EY
+status: draft
+target_path: src/readers/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/dataio/readers/streaming-readers-spec.md
+acceptance:
+  - "pytest tests/unit/test_streaming_readers.py"
+regeneration: scaffold-then-edit
+---
+
 # Streaming Readers Spec
-
----
-
-## Front Matter
-
-```yaml
-id: streaming-readers-spec
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: dataio
-component: readers
-backlog_ids:
-  - DATAIO-002  # Streaming reader implementations
-  - READER-002  # Auto Loader / Kafka readers
-dependencies:
-  - metadata-models-spec
-  - engine-contracts-spec
-  - file-readers-spec
-runtime: Python 3.10+ with PySpark + Structured Streaming
-purpose: Implement Reader protocol for streaming data sources (Auto Loader, Kafka)
-inputs:
-  - Feed metadata (source_location, source_format, file_format_options)
-  - engine-contracts-spec (Reader protocol)
-outputs:
-  - StreamingReader implementation classes
-  - Factory registration for streaming formats
-  - Unit/integration tests
-tools_required:
-  - PySpark Structured Streaming API
-  - Databricks Auto Loader (cloudFiles)
-  - Kafka (optional)
-```
-
----
 
 ## 1. Purpose
 
@@ -401,6 +383,30 @@ streaming_df.writeStream \
 ---
 
 ## 5. Guardrails
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Error Handling
 * **Missing schema location** — generate default from feed_id if not specified

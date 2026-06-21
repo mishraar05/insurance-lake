@@ -60,6 +60,13 @@ Net-new component: full stub above.
 ## 5. Design
 Two passes. **Pass 1 (per-spec)** parses front-matter + checks structure, building an index `by_id[id] -> front-matter`. **Pass 2 (corpus)** runs the graph + uniqueness + spec-per-feature checks over that index. Position in the loop: *author / Genie writes a spec → `validate_spec` → fix ERRORs → spec is registry-ready → `capability-registry` loads it → `build_plan`.* This offloads the registry's "validated at load time" assumption onto a dedicated tool and makes the same rules reusable by `control.self-review` (which feeds confidence-scoring → HITL). Deliberately decoupled from CI; exit codes still let the authoring agent / router branch on the result.
 
+### SOLID Principles Application
+* **SRP (Single Responsibility)**: Each function has one clear purpose - `parse_front_matter` extracts YAML, `check_spec` validates individual spec structure, `check_corpus` validates cross-spec integrity, `validate` orchestrates the workflow, `main` handles CLI concerns. Helper functions (`_has_section`, `_extract_section`, `_cycle`) are focused on single operations.
+* **OCP (Open/Closed)**: New validation checks can be added to `check_spec` or `check_corpus` without modifying the core validation workflow or the `Finding` data structure. The two-pass architecture separates extensible per-spec and corpus checks from the stable orchestration logic.
+* **LSP (Liskov Substitution)**: The `Finding` dataclass is immutable and type-stable. All check functions return `list[Finding]`, making them substitutable in the aggregation step.
+* **ISP (Interface Segregation)**: Clean separation of concerns - parsing (`parse_front_matter`), per-spec validation (`check_spec`), corpus validation (`check_corpus`), orchestration (`validate`), and CLI (`main`). Each interface exposes only what its callers need.
+* **DIP (Dependency Inversion)**: Depends on abstractions (`Path`, `dict`, `list`) not concrete implementations. The validator is decoupled from file systems (operates on `Path`), spec formats (operates on parsed `dict`), and output destinations (returns structured `Finding` list).
+
 ## 6. Implementation logic & guidance
 **Logic / algorithm** (source of truth - the generator translates this, it does not invent it):
 - **Procedure:**
@@ -72,6 +79,7 @@ Two passes. **Pass 1 (per-spec)** parses front-matter + checks structure, buildi
      - `id.format` (error): matches `^[a-z0-9]+\.[a-z0-9-]+$`.
      - `target_path.tier` (error): starts with one of the allowed tiers; (warn) if it does not end with `/`.
      - `sections.present` (error): a heading line `^##\s*{n}\.` exists for **n = 1..12**.
+     - `design.solid` (warn): §5 contains "SOLID Principles" subsection (REQUIRED for all components).
      - `logic.block` (error): §6 contains "Logic / algorithm"; **unless** it declares "N/A", it must contain all four sub-parts: *Procedure*, *Decision rules*, *Key code fragments*, *Edge cases*.
      - `examples.counter` (warn): §10 mentions a counter-example.
   4. Record `by_id[id] = front-matter` (flag duplicate ids while inserting).
@@ -83,7 +91,7 @@ Two passes. **Pass 1 (per-spec)** parses front-matter + checks structure, buildi
      - `provides.nonempty` (warn): a code spec (`target_path` under `src/` or `scripts/`) with empty `provides`.
   6. Sort findings by (path, severity, check); print; return `1` if any `error` (or any finding under `--strict`) else `0`.
 - **Decision rules:**
-  - *severity*: structural / front-matter / graph-integrity = **error**; advisory style (no counter-example, empty `provides`, missing trailing slash) = **warn**. `--strict` promotes warn → error.
+  - *severity*: structural / front-matter / graph-integrity = **error**; advisory style (no counter-example, empty `provides`, missing trailing slash, missing SOLID documentation) = **warn**. `--strict` promotes warn → error.
   - *logic-bearing vs interface-only*: interface/data specs (e.g. contracts, metadata) declare `Logic / algorithm: N/A` in §6; **everything else** must carry the four-part logic block.
 - **Key code fragments** (the generated code MUST contain these):
 ```python
@@ -104,10 +112,13 @@ def parse_front_matter(path: Path) -> dict:
 def _has_section(body: str, n: int) -> bool:        # "## 3." present
     return re.search(rf"(?m)^##\s*{n}\.", body) is not None
 
+def _extract_section(body: str, n: int) -> Optional[str]:  # extract section n content
+    ...
+
 def _cycle(by_id: dict) -> list | None:             # DFS over depends_on -> first cycle path or None
     ...
 ```
-- **Edge cases:** CRLF line endings; a spec whose §6 is just "Logic / algorithm: N/A" (interface spec) **passes**; a `capability` with `selectable: false` is validated for shape but **excluded** from the menu-uniqueness check; a forward `depends_on` to a not-yet-written spec → **error** (broken graph - add the dep spec or fix the id); duplicate `target_path` across two specs → error; an empty `specs/` → exit 0 with a "no specs found" notice; templates/READMEs skipped.
+- **Edge cases:** CRLF line endings; a spec whose §6 is just "Logic / algorithm: N/A" (interface spec) **passes**; a `capability` with `selectable: false` is validated for shape but **excluded** from the menu-uniqueness check; a forward `depends_on` to a not-yet-written spec → **error** (broken graph - add the dep spec or fix the id); duplicate `target_path` across two specs → error; an empty `specs/` → exit 0 with a "no specs found" notice; templates/READMEs skipped; a spec missing SOLID documentation in §5 → **warn** (not error, to allow gradual adoption).
 
 **Guidance:** single file `scripts/speccheck/validate_spec.py`; sibling to `scripts/codegen/gen_schema.py`; mirror its style (argparse, byte-stable output, `sys.exit`).
 **Constraints (hard):** pure Python (PyYAML only; no pyspark/network); deterministic, stable ordering; **report-only - NEVER edits a spec**; build-time/authoring tool, not a data-plane run → **NO ABC instrumentation** (the owning skill records the outcome); exit codes 0/1/2.
@@ -122,6 +133,7 @@ Build-time/authoring tool, not a data run → **no ABC in the tool itself** (con
 Unit fixtures (mock spec files in a temp dir):
 - a known-good spec → 0 findings;
 - a spec missing `acceptance` → `front-matter.required` error;
+- a spec missing SOLID Principles in §5 → `design.solid` warning;
 - a logic spec whose §6 lacks "Edge cases" (and is not N/A) → `logic.block` error;
 - two specs both tagged `(ingestion, batch)` → `capability.spec_per_feature` error;
 - `A depends_on B`, `B depends_on A` → `depends_on.cycle` error;

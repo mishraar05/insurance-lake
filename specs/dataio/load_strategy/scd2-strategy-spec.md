@@ -1,41 +1,21 @@
+---
+id: dataio.load_strategy.scd2-strategy
+title: SCD2 Strategy Spec
+owner: EY
+status: draft
+target_path: src/load_strategy/
+owning_skill: framework-dev
+backlog: []
+provides: []
+depends_on: []
+generation_context:
+  - specs/dataio/load_strategy/scd2-strategy-spec.md
+acceptance:
+  - "pytest tests/unit/test_scd2_strategy.py"
+regeneration: scaffold-then-edit
+---
+
 # SCD2 Strategy Spec
-
----
-
-## Front Matter
-
-```yaml
-id: scd2-strategy-spec
-version: 1.0
-status: approved
-approved_date: 2026-06-18
-tier: dataio
-component: load_strategy
-backlog_ids:
-  - DATAIO-012  # SCD2 strategy implementation
-  - LOADSTRAT-003  # Slowly Changing Dimension Type 2
-dependencies:
-  - metadata-models-spec
-  - engine-contracts-spec
-runtime: Python 3.10+ with PySpark + Delta Lake
-purpose: Implement LoadStrategy protocol for SCD2 (maintain full history with effective dates)
-inputs:
-  - DataFrame to write
-  - Target table FQN
-  - Primary keys (required for SCD2)
-  - Partition columns (optional)
-  - Execution mode (declarative | imperative)
-outputs:
-  - SCD2Strategy implementation
-  - Factory registration
-  - Unit/integration tests
-tools_required:
-  - PySpark DataFrame API
-  - Delta Lake MERGE
-  - Date/timestamp handling
-```
-
----
 
 ## 1. Purpose
 
@@ -522,6 +502,30 @@ spark.sql(ddl)
 ---
 
 ## 5. Guardrails
+
+### SOLID Principles Application
+
+**Single Responsibility Principle (SRP):**
+- Each component/class has ONE reason to change
+- Separate concerns: reading, transformation, writing, validation
+
+**Open/Closed Principle (OCP):**
+- Open for extension via new implementations
+- Closed for modification of existing interfaces
+
+**Liskov Substitution Principle (LSP):**
+- Subclasses/implementations are substitutable for their base protocol
+- All implementations honor the same contract
+
+**Interface Segregation Principle (ISP):**
+- Clients depend only on methods they use
+- Separate protocols for different concerns (Reader, LoadStrategy, Engine, Check, Masker)
+
+**Dependency Inversion Principle (DIP):**
+- Depend on abstractions (protocols), not concrete implementations
+- High-level modules don't depend on low-level details
+
+
 
 ### 5.1 Error Handling
 * **Primary keys missing** — raise ValueError("SCD2 requires primary_keys")
