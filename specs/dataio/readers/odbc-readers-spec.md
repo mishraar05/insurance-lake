@@ -3,10 +3,10 @@ id: dataio.readers.odbc-readers
 title: ODBC Readers Spec
 owner: EY
 status: draft
-target_path: src/readers/
+target_path: src/dataio/readers/odbc/
 owning_skill: framework-dev
 backlog: []
-provides: []
+provides: [ODBCReader, read, supports_format]
 depends_on: []
 generation_context:
   - specs/dataio/readers/odbc-readers-spec.md
@@ -408,11 +408,16 @@ df = reader.read(spark, feed)
 
 1. **pyodbc library** — use pyodbc for ODBC connectivity
 2. **Single-threaded** — no parallelization (ODBC limitation)
-3. **Small tables only** — recommend < 1M rows (memory-bound)
-4. **Connection string** — support full string or component-based
-5. **Credential placeholders** — {username} and {password} replaced from secrets
-6. **Driver installation** — ODBC drivers installed via cluster init script
+3. **Small tables only*
 
----
+## 9. Testing & acceptance
+Unit + integration tests per the front-matter `acceptance`; mock the external system/driver; >80% coverage on read/validate/error paths.
 
-**End of ODBC Readers Spec (Approved)**
+## 10. Examples
+See §6 for the canonical flow. **Conformant:** a typical read/write succeeds and returns the contracted type. **Counter-example:** do NOT hard-code connection details or bypass the `core.contracts` protocol.
+
+## 11. Regeneration contract
+`scaffold-then-edit`: the class + method skeleton are fully generated; the Spark/connector-touching parts are generated then reviewed against current Databricks/driver docs.
+
+## 12. References
+`specs/foundation/contracts-spec.md` (`Reader`/`LoadStrategy`/`WriteResult`) · `specs/foundation/config-model-spec.md` (`SourceConfig`/`TargetConfig`/`LoadConfig`) · `specs/dataio/schema-evolution-spec.md` · `skills/_shared/project-structure.md`.

@@ -1,5 +1,5 @@
 ---
-id: foundation.codegen
+id: scripts.codegen
 title: Schema Codegen (metadata -> DDL + JSON-schema)
 owner: EY
 status: active
@@ -7,7 +7,7 @@ target_path: scripts/codegen/
 owning_skill: framework-dev.build-config-model
 backlog: [FND-002, FND-004]
 provides: [sql_type, model_to_ddl, model_to_jsonschema, generate, main]
-depends_on: [foundation.config-model]
+depends_on: [core.metadata]
 generation_context:
   - src/core/metadata/*.py
   - specs/foundation/config-model-spec.md

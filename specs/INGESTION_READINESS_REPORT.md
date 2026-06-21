@@ -48,7 +48,7 @@ ERROR  [front-matter.parse]  malformed front-matter: no front-matter
 * YAML front-matter with:
   - `id: ingestion.engine`
   - `provides: [IngestionEngine, run_batch_full, run_batch_incremental, run_stream_append, run_scd2_batch]`
-  - `depends_on: [foundation.contracts, foundation.config-model, foundation.abc-sdk, dataio.readers.file-readers, dataio.load_strategy.append-strategy]`
+  - `depends_on: [core.contracts, core.metadata, foundation.abc-sdk, dataio.readers.file-readers, dataio.load_strategy.append-strategy]`
   - `target_path: src/framework/ingestion/`
   - `acceptance: ["pytest tests/framework/test_ingestion_engine.py"]`
 * 12 numbered sections (§1-12) per spec template
@@ -80,7 +80,7 @@ All 6 reader specs have this pattern:
 
 ```yaml
 provides: []        # ❌ EMPTY - should declare reader classes
-depends_on: []      # ❌ EMPTY - should depend on foundation.contracts
+depends_on: []      # ❌ EMPTY - should depend on core.contracts
 ```
 
 **Affected Specs:**
@@ -111,7 +111,7 @@ All 4 load strategy specs have the same issue:
 
 ```yaml
 provides: []        # ❌ EMPTY - should declare strategy classes
-depends_on: []      # ❌ EMPTY - should depend on foundation.contracts
+depends_on: []      # ❌ EMPTY - should depend on core.contracts
 ```
 
 **Affected Specs:**
@@ -153,7 +153,7 @@ ERROR  [logic.block]  §6 missing 'Logic / algorithm'
 
 ---
 
-### 3.2 Config Model (`foundation.config-model`)
+### 3.2 Config Model (`core.metadata`)
 
 **Status:** 🟡 **ACTIVE BUT HAS RESOLUTION ERROR**  
 **Location:** `specs/foundation/config-model-spec.md`
@@ -173,7 +173,7 @@ ERROR  [logic.block]         §6 missing 'Logic / algorithm'
 
 ---
 
-### 3.3 Core Contracts (`foundation.contracts`)
+### 3.3 Core Contracts (`core.contracts`)
 
 **Status:** 🟡 **ACTIVE BUT INCOMPLETE**  
 **Location:** `specs/foundation/contracts-spec.md`
@@ -188,7 +188,7 @@ ERROR  [logic.block]  §6 missing 'Edge cases'
 
 **Front-matter:** ✅ Complete  
 **Capabilities:** ✅ Declared correctly (`provides: [Reader, LoadStrategy, Engine, RunContext, RunResult, Check, CheckResult, Masker]`)  
-**Dependencies:** ✅ Correct (`depends_on: [foundation.config-model]`)
+**Dependencies:** ✅ Correct (`depends_on: [core.metadata]`)
 
 **Impact:** Medium - Protocols are well-defined in §3, but §6 lacks procedural implementation guidance.
 
@@ -281,13 +281,13 @@ DataIO Load Strategies (PARTIAL 🟡) → Missing capability declarations
 3. **Update all 6 reader specs** - Add to front-matter:
    ```yaml
    provides: [CSVReader, JSONReader, ...]  # actual class names
-   depends_on: [foundation.contracts]      # implements Reader protocol
+   depends_on: [core.contracts]      # implements Reader protocol
    ```
 
 4. **Update all 4 load strategy specs** - Add to front-matter:
    ```yaml
    provides: [AppendStrategy]              # actual class name
-   depends_on: [foundation.contracts]      # implements LoadStrategy protocol
+   depends_on: [core.contracts]      # implements LoadStrategy protocol
    ```
 
 ---
@@ -343,11 +343,11 @@ DataIO Load Strategies (PARTIAL 🟡) → Missing capability declarations
    - One line change: `abc-sdk-spec` → `foundation.abc-sdk`
 
 3. **Batch-update reader specs** (1 hour)
-   - Script to add `provides: [...]` and `depends_on: [foundation.contracts]` to all 6
+   - Script to add `provides: [...]` and `depends_on: [core.contracts]` to all 6
    - Run validator to confirm
 
 4. **Batch-update load strategy specs** (1 hour)
-   - Script to add `provides: [...]` and `depends_on: [foundation.contracts]` to all 4
+   - Script to add `provides: [...]` and `depends_on: [core.contracts]` to all 4
    - Run validator to confirm
 
 **Deliverable:** All specs pass front-matter validation, capability registry can resolve ingestion dependencies.
@@ -394,8 +394,8 @@ DataIO Load Strategies (PARTIAL 🟡) → Missing capability declarations
     from agents.registry import load_registry, resolve_selection, build_plan
     reg = load_registry(Path("specs"))
     plan = build_plan(["ingestion.engine"])
-    # Should return: [foundation.abc-sdk, foundation.config-model, 
-    #                 foundation.contracts, dataio.readers.file-readers,
+    # Should return: [foundation.abc-sdk, core.metadata, 
+    #                 core.contracts, dataio.readers.file-readers,
     #                 dataio.load_strategy.append-strategy, ingestion.engine]
     ```
 

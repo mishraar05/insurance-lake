@@ -36,6 +36,7 @@ Frameworks to build (all instrument ABC):
 - Medallion: Bronze (raw) -> Silver (conformed, **ACORD-aligned canonical model**: party, policy, coverage, claim, payment, loss) -> Gold (marts).
 - Governance via **Unity Catalog** (access, masking, lineage, audit, model governance).
 - Declarative = **Lakeflow Declarative Pipelines** (AUTO CDC for SCD); non-declarative = **classic batch PySpark/Python + MERGE** on Lakeflow Jobs. Structured Streaming is intentionally avoided (checkpoint overhead).
+- **Two-track placement rule (every module).** `LoadConfig.engine` (`declarative` | `non_declarative`) is the single selector. **Decision/policy modules** (schema-evolution, quarantine, DQ, masking, config) live **once** and emit per-track outputs by dispatching on `engine`. **Execution modules** split per track because the runtimes differ: *non-declarative* = `core/contracts` protocol impls in `dataio/` + imperative engines in `framework/<engine>/` + `resources/jobs/`; *declarative* = Lakeflow declarations (`@dlt` / AUTO CDC / `cloudFiles`) in `framework/<engine>/declarative/` + `resources/pipelines/`. The `core/contracts` protocols (Reader/LoadStrategy/Engine) model the non-declarative world only.
 - A single **metadata/config contract** drives both engines; ABC is the audit/balance/control plane.
 - Real-time/operational option: **Lakebase** + Spark real-time mode.
 

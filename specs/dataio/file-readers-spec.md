@@ -1,13 +1,13 @@
 ---
-id: dataio.file-readers
+id: dataio.readers.file-readers
 title: File Readers (batch, multi-format)
 owner: EY
 status: draft
-target_path: src/dataio/readers/
+target_path: src/dataio/readers/file/
 owning_skill: framework-dev.build-ingestion-engine
 backlog: [INGEST-002]
 provides: [FileReader, ReaderFactory, get_reader]
-depends_on: [foundation.contracts, foundation.config-model]
+depends_on: [core.contracts, core.metadata]
 generation_context:
   - specs/foundation/contracts-spec.md
   - specs/foundation/config-model-spec.md

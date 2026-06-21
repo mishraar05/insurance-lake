@@ -62,7 +62,7 @@ Each capability entry includes:
 
 ---
 
-### 3.2 Config Model (`foundation.config-model`)
+### 3.2 Config Model (`core.metadata`)
 
 **Module:** `src/core/metadata/`  
 **Status:** Active  
@@ -86,11 +86,11 @@ Each capability entry includes:
 
 ---
 
-### 3.3 Core Contracts (`foundation.contracts`)
+### 3.3 Core Contracts (`core.contracts`)
 
 **Module:** `src/core/contracts/`  
 **Status:** Active  
-**Depends On:** `foundation.config-model`
+**Depends On:** `core.metadata`
 
 | Capability | Type | Description | Dependencies |
 |------------|------|-------------|--------------|
@@ -107,11 +107,11 @@ Each capability entry includes:
 
 ---
 
-### 3.4 Schema Codegen (`foundation.codegen`)
+### 3.4 Schema Codegen (`scripts.codegen`)
 
 **Module:** `scripts/codegen/`  
 **Status:** Active  
-**Depends On:** `foundation.config-model`
+**Depends On:** `core.metadata`
 
 | Capability | Type | Description | Dependencies |
 |------------|------|-------------|--------------|
@@ -177,7 +177,7 @@ Each capability entry includes:
 
 **Module:** `src/readers/`  
 **Status:** Draft (pending Phase 1)  
-**Depends On:** `foundation.contracts` (implements `Reader` protocol)
+**Depends On:** `core.contracts` (implements `Reader` protocol)
 
 | Spec | Capabilities | Source Types |
 |------|-------------|--------------|
@@ -196,7 +196,7 @@ Each capability entry includes:
 
 **Module:** `src/load_strategy/`  
 **Status:** Draft (pending Phase 1)  
-**Depends On:** `foundation.contracts` (implements `LoadStrategy` protocol)
+**Depends On:** `core.contracts` (implements `LoadStrategy` protocol)
 
 | Spec | Capabilities | Strategy |
 |------|-------------|----------|
@@ -215,7 +215,7 @@ Each capability entry includes:
 
 **Module:** `src/framework/ingestion/`  
 **Status:** Draft (pending Phase 1)  
-**Depends On:** `foundation.contracts`, `foundation.config-model`, `foundation.abc-sdk`, `dataio.readers.*`, `dataio.load_strategy.*`
+**Depends On:** `core.contracts`, `core.metadata`, `foundation.abc-sdk`, `dataio.readers.*`, `dataio.load_strategy.*`
 
 | Capability | Type | Description |
 |------------|------|-------------|
@@ -248,7 +248,7 @@ Each capability entry includes:
 
 **Module:** `src/framework/quality/`  
 **Status:** Draft (pending Phase 2)  
-**Depends On:** `foundation.contracts` (implements `Check` protocol)
+**Depends On:** `core.contracts` (implements `Check` protocol)
 
 | Capability | Type | Description |
 |------------|------|-------------|
@@ -316,9 +316,9 @@ Based on the capability analysis, the **Ingestion Framework** requires these cap
 
 ### ✅ Active (Ready to Use)
 * `foundation.abc-sdk` - All 9 capabilities
-* `foundation.config-model` - All 6 capabilities
-* `foundation.contracts` - All 8 capabilities
-* `foundation.codegen` - All 5 capabilities
+* `core.metadata` - All 6 capabilities
+* `core.contracts` - All 8 capabilities
+* `scripts.codegen` - All 5 capabilities
 * `foundation.spec-validator` - All 6 capabilities
 * `agentic.capability-registry` - All 5 capabilities
 
@@ -368,8 +368,8 @@ Based on the capability analysis, the **Ingestion Framework** requires these cap
 **Example Resolution:**
 ```
 User selects: ingestion.batch
-→ depends on: foundation.contracts
-  → depends on: foundation.config-model
+→ depends on: core.contracts
+  → depends on: core.metadata
     → depends on: foundation.abc-sdk
       → depends on: (none)
       

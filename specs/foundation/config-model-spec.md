@@ -1,5 +1,5 @@
 ---
-id: foundation.config-model
+id: core.metadata
 title: Metadata / Config Model
 owner: EY
 status: active

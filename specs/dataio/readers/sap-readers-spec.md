@@ -3,10 +3,10 @@ id: dataio.readers.sap-readers
 title: SAP Readers Spec
 owner: EY
 status: draft
-target_path: src/readers/
+target_path: src/dataio/readers/sap/
 owning_skill: framework-dev
 backlog: []
-provides: []
+provides: [SAPHANAReader]
 depends_on: []
 generation_context:
   - specs/dataio/readers/sap-readers-spec.md
@@ -361,10 +361,10 @@ df = reader.read(spark, feed)
 1. **SAP HANA via JDBC** — primary implementation (extends JDBCReader)
 2. **Driver** — com.sap.db.jdbc.Driver (requires manual installation)
 3. **Partner connectors** — recommended for complex SAP extraction
-4. **Delta Lake integration** — partner connectors export to Delta, framework reads Delta
-5. **Schema names** — typically SAPSR3 or SAP<SID>
-6. **Client parameter** — included in queries (WHERE MANDT = 'XXX')
+4. **Delta Lake integration** — partner
 
----
+## 11. Regeneration contract
+`scaffold-then-edit`: the class + method skeleton are fully generated; the Spark/connector-touching parts are generated then reviewed against current Databricks/driver docs.
 
-**End of SAP Readers Spec (Approved)**
+## 12. References
+`specs/foundation/contracts-spec.md` (`Reader`/`LoadStrategy`/`WriteResult`) · `specs/foundation/config-model-spec.md` (`SourceConfig`/`TargetConfig`/`LoadConfig`) · `specs/dataio/schema-evolution-spec.md` · `skills/_shared/project-structure.md`.

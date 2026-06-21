@@ -1,60 +1,43 @@
-# Genie Code grounding pack — InsureLake spec → code
+# Genie Code grounding pack - spec-faithful generation (gap protocol)
 
-**Purpose.** Genie Code (the AI coding assistant) wandered earlier because it had **no grounding** in this project and was handed an oversized, vague task. This pack fixes that: it gives Genie Code your conventions + one complete spec + a tight "generate exactly this" instruction, so it acts as a focused **per-spec generator** instead of guessing.
+**Goal:** make Genie Code generate a component **strictly from its spec**, and when the spec is missing a needed detail, **report a SPEC GAP and stop** so you can enrich the spec - instead of inventing. There is no magic "halt" switch in an LLM agent, so this pack stacks three levers + two deterministic backstops.
 
-**First target:** the **Spec Validator** (`spec-validation-spec.md`) — pure Python, zero dependencies on other specs, and once generated you can run it on `specs/` to flag the 35 stub specs. A real, measurable result.
+## The 3 levers (make it follow + pause)
+1. **Approval mode = "Ask first"** (Genie Code Settings; *not* Auto-approve). Genie Code proposes a plan and asks before every tool action (file write, run). Accepted code does **not** auto-run. This is your enforced checkpoint - inspect each step, Allow / Skip / redirect.
+2. **The Agent Skill `insurelake-spec-codegen`** carries the **spec-gap protocol** + golden rules (the spec is the only source of truth; never invent; emit §3 verbatim; implement §6 literally). Skills are the documented way to make Genie Code follow your standards.
+3. **Two-phase prompting** (`GENERATION-PROMPT.md`): **Phase 1 = GAP ANALYSIS only (no code)** -> Genie Code lists every detail missing from the spec and stops; you enrich the spec; **Phase 2 = GENERATE**. This forces gaps to surface *before* code.
 
-> Mental model: **Genie Code = the worker** that generates one component from one spec. The menu-driven chatbot that *orchestrates* builds is a separate, later thing (Agent Bricks / Agent Framework, Phase 4). Don't ask Genie Code to be the orchestrator.
+## The 2 deterministic backstops (catch what slips - no trust in the model)
+4. **The spec's `acceptance:` + your `spec-validator`.** Diff the generated public signatures against the spec's §3 and run the spec's `acceptance:` commands. A mismatch or failure is objective proof of drift - no LLM goodwill required.
+5. **Unity Catalog governance.** Genie Code only touches assets you're authorized for and asks before modifying tables.
 
----
+> The *pause* comes from "Ask first" + Phase-1 gap analysis; the *no-invention guarantee* comes from the validator/acceptance check.
 
-## Two ways to use it
-
-### Path A — Install as an Agent Skill (recommended)
-Databricks Agent Skills load from `/Users/{you}/.assistant/skills/`. Copy the skill folder there:
-
+## How to use
+**Path A - install the skill (recommended).** Copy the skill folder to where Genie Code loads skills:
 ```
 cp -r docs/genie-code/insurelake-spec-codegen  /Users/<you>/.assistant/skills/
 ```
+Then in Genie Code (Ask-first mode): *"Use `insurelake-spec-codegen`. Phase 1 gap analysis only for `specs/foundation/spec-validation-spec.md`."*
 
-(or back it with a Git folder per Databricks' guidance). Then in **Genie Code**:
+**Path B - paste prompts.** Open `GENERATION-PROMPT.md`, run Phase 1, enrich the spec for any gaps, then run Phase 2.
 
-> *Use the `insurelake-spec-codegen` skill to generate the Spec Validator from `reference/spec-validation-spec.md`.*
-
-The skill carries the golden rules + the target task + the reference files, so the instruction stays short.
-
-### Path B — No install (paste path)
-Open `GENERATION-PROMPT.md`, attach the two named files in Genie Code, and paste the prompt. Same rules, nothing to install.
-
----
-
-## Run steps (either path)
-1. Run Genie Code with the skill/prompt above.
-2. Let it write `scripts/speccheck/validate_spec.py` **and** `tests/scripts/test_validate_spec.py`.
-3. **Run the acceptance commands yourself** (don't trust "looks done"):
-   - `python scripts/speccheck/validate_spec.py specs/`
-   - `pytest tests/scripts/test_validate_spec.py`
-4. Score it with the table below.
-
----
-
-## Fidelity scorecard (this is the benchmark)
-Score each Y/N — the count of Y's is your **spec → Genie-Code fidelity** for this slice (feeds the PoC benchmark in `specs/foundation/benchmark-plan.md`).
-
+## Fidelity scorecard (score after Phase 2)
 | # | Check | Y/N |
 |---|-------|-----|
-| 1 | **Interface match** — emitted exactly the §3 API: `Finding` + `parse_front_matter`, `check_spec`, `check_corpus`, `validate`, `main` (same params/returns) | |
-| 2 | **Logic match** — §6 key fragments present: `REQUIRED` list, `TIERS`, `ID_RE`, the `## n.` section regex, the depends_on cycle DFS | |
-| 3 | **Placement** — landed in `scripts/speccheck/validate_spec.py` (+ tests in `tests/scripts/`), nothing at repo root | |
-| 4 | **Constraints honored** — pure Python + PyYAML only; no Spark / network / ABC; report-only; single file | |
-| 5 | **Acceptance passes** — both commands above succeed | |
-| 6 | **No invention** — no extra public functions, flags, or dependencies beyond the spec | |
+| 1 | **Gaps surfaced first** - Phase 1 reported real missing detail (or a clean `NO GAPS`) before any code | |
+| 2 | **Interface match** - generated public API equals §3 exactly (names/params/returns) | |
+| 3 | **Logic match** - §6 Procedure / Decision rules / Key fragments / Edge cases all present | |
+| 4 | **Placement** - landed in the spec's `target_path` (+ tests mirrored), nothing at repo root | |
+| 5 | **Constraints honored** - only the spec's named deps; no Spark/network/ABC if forbidden | |
+| 6 | **Acceptance passes** - the spec's `acceptance:` commands succeed | |
+| 7 | **No invention** - nothing added that the spec doesn't state | |
 
-**Interpreting the score:** 6/6 = the spec is generation-ready and the loop works — repeat on the next spec. < 6 = note exactly which row failed; that tells us whether to tighten the **spec** (logic/interface under-specified) or the **grounding** (rules not landing). Either way you've isolated the cause instead of "the bot is confused."
+6/6-7 = the spec is generation-ready and the loop works. < that = the failing row tells you whether to enrich the **spec** or tighten the **skill**.
 
----
+## If it still invents instead of pausing
+- Confirm approval mode is **"Ask first"**, not Auto-approve.
+- Keep the ask to **one** component and **Phase 1 first** - don't say "build it".
+- Make sure the skill loaded (SKILL.md at the skill-folder root, `reference/` beside it).
 
-## If it still wanders
-- It's likely not loading the reference files → confirm the skill folder copied correctly (SKILL.md at its root, `reference/` beside it), or use Path B and **attach** the files explicitly.
-- Keep the ask to **one** component. If you ask for "the framework," it will wander again — that's an orchestration task, not a Genie Code task.
-- Make sure you pointed it at a **logic-complete** spec (this one is). Don't feed it the stub specs.
+Sources: Databricks [Extend Genie Code with agent skills](https://docs.databricks.com/aws/en/genie-code/skills) · [Use Genie Code (approval modes, accept/reject)](https://docs.databricks.com/aws/en/genie-code/use-genie-code) · [Personalizing Genie Code: instructions, skills, memory, MCP](https://www.databricks.com/blog/personalizing-genie-code-instructions-skills-memory-and-mcp) · [databricks-solutions/genie-code-skills-demo](https://github.com/databricks-solutions/genie-code-skills-demo).

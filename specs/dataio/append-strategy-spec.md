@@ -1,13 +1,13 @@
 ---
-id: dataio.append-strategy
+id: dataio.load_strategy.append-strategy
 title: Append Load Strategy (batch Delta)
 owner: EY
 status: draft
-target_path: src/dataio/load_strategy/
+target_path: src/dataio/load_strategy/append/
 owning_skill: framework-dev.build-ingestion-engine
 backlog: [INGEST-003]
 provides: [AppendStrategy]
-depends_on: [foundation.contracts, foundation.config-model]
+depends_on: [core.contracts, core.metadata]
 generation_context:
   - specs/foundation/contracts-spec.md
   - specs/foundation/config-model-spec.md

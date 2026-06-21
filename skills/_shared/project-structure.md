@@ -4,10 +4,14 @@ Status: FINAL - 2026-06-18. Standard Databricks Asset Bundle (DAB) layout. Every
 
 ## Decisions (locked)
 - Code under `src/`, on `pythonpath = src`.
-- No project-name wrapper and no `sdk/` silo. Top-level packages under `src/` are `core/`, `framework/`, `runners/`.
-  - `core/` = foundation libs: `config`, `abc` (audit/balance/control), `common`.
-  - `framework/` = metadata-driven engines.
+- No project-name wrapper and no `sdk/` silo. Top-level packages under `src/` are `core/`, `dataio/`, `services/`, `framework/`, `runners/`, `agents/`.
+  - `core/` = foundation libs: `contracts`, `metadata`/`config`, `common`.
+  - `dataio/` = reusable primitives + shared policy: `readers`, `load_strategy`, `schema_evolution`, `quarantine`, `checks`, `maskers`, `transform`.
+  - `services/` = cross-cutting services: `abc` (audit/balance/control), `observability`, `finops`.
+  - `framework/` = metadata-driven engines (the orchestrators).
   - `runners/` = thin entrypoints invoked by jobs/pipelines. (Named `runners`, not `entrypoints`, to avoid the `entrypoints` PyPI package collision.)
+  - `agents/` = agentic control plane: capability registry, router.
+- **Two-track flavor placement.** `LoadConfig.engine` (`declarative` | `non_declarative`) selects the flavor. **Decision/policy** modules (schema_evolution, quarantine, checks, maskers, config) live **once** and emit per-track outputs by dispatching on `engine`. **Execution** modules split per track: *non-declarative* = `core/contracts` impls in `dataio/` + `framework/<engine>/` + `resources/jobs/`; *declarative* = Lakeflow `@dlt`/AUTO CDC/`cloudFiles` in `framework/<engine>/declarative/` + `resources/pipelines/`.
 - Feed metadata in `conf/metadata/` as JSON; control-table DDL in `conf/ddl/`.
 - DAB resources in `resources/` with `jobs/` + `pipelines/` subfolders.
 - No wheel: code deploys as workspace files; deps via `requirements.txt` on serverless.
@@ -23,11 +27,17 @@ insurance-lake/
     jobs/                     #   *.job.yml (Lakeflow Jobs)
   src/                        # all Python (workspace files; pythonpath=src)
     core/                     #   foundation libs (no sdk silo)
-      config/                 #     metadata config model + loader
-      abc/                    #     ABC SDK (audit/balance/control)
+      contracts/              #     typed protocols (Reader/LoadStrategy/Engine) + value objects
+      metadata/  (config/)    #     metadata config model + loader
       common/                 #     session, logging, redaction, exceptions
-    framework/                #   engines: ingestion/ harmonization/ dq/ reconciliation/ masking/ observability/ finops/
+    dataio/                   #   reusable primitives + shared policy (BOTH flavors live here)
+      readers/ load_strategy/ schema_evolution/ quarantine/ checks/ maskers/ transform/
+    services/                 #   cross-cutting: abc/ (audit/balance/control) observability/ finops/
+    framework/                #   metadata-driven engines: ingestion/ harmonization/ dq/ reconciliation/ masking/ ...
+      <engine>/               #     NON-declarative (imperative batch Engine.run)
+      <engine>/declarative/   #     declarative (Lakeflow @dlt / AUTO CDC / cloudFiles)
     runners/                  #   thin notebook/py entrypoints invoked by jobs & pipelines
+    agents/                   #   agentic control plane: capability registry, router
   conf/
     ddl/                      # control-table DDL (.sql)
     metadata/                 # feed metadata as JSON (one file per feed); examples/
@@ -41,13 +51,14 @@ insurance-lake/
 
 ## Imports
 - `from core.config import ConfigLoader`
-- `from core.abc import ABC`
+- `from services.abc import ABC`
 - `from core.common.exceptions import ConfigValidationError`
 - `from framework.ingestion import ...`
 
 ## Placement rules (where generated files go)
-- Foundation lib code -> `src/core/<area>/` (config | abc | common). ABC SDK = `src/core/abc/`.
-- Engine code from a `build-<x>-engine` skill -> `src/framework/<x>/`.
+- Foundation lib code -> `src/core/<area>/` (contracts | metadata/config | common); reusable primitives + shared policy -> `src/dataio/<area>/`; cross-cutting services (ABC SDK, observability, finops) -> `src/services/<area>/`.
+- Engine code from a `build-<x>-engine` skill -> `src/framework/<x>/` (non-declarative, imperative) **and** `src/framework/<x>/declarative/` (declarative Lakeflow `@dlt`/AUTO CDC).
+- **Flavor split:** `LoadConfig.engine` selects the track - decision/policy modules emit both, execution modules split (`resources/jobs/` vs `resources/pipelines/` deploy them).
 - Entrypoints (run scripts/notebooks) -> `src/runners/`.
 - Lakeflow pipeline defs -> `resources/pipelines/*.pipeline.yml`; Jobs -> `resources/jobs/*.job.yml`.
 - Control-table DDL -> `conf/ddl/`; feed metadata (JSON) -> `conf/metadata/`.
@@ -58,6 +69,7 @@ insurance-lake/
 - Top-level import names under src are `core`, `framework`, `runners` (chosen to avoid stdlib/PyPI collisions; never name a top-level package `abc`, `config`, `common`, or `entrypoints` directly under src).
 - One module per concern; a package (`__init__.py`) per area/engine; re-export public API in package `__init__`.
 - snake_case files/modules; PascalCase classes.
+- **Spec ids mirror the src package path** (2-3 segments): `core.contracts`, `core.metadata`, `dataio.load_strategy.scd2-strategy`, `dataio.readers.file-readers`.
 - Workspace Python modules + Asset Bundles (no wheel); deps via `requirements.txt`.
 - Every Genie Code prompt states the exact destination path(s) and cites this file.
 

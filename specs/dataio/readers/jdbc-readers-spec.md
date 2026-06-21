@@ -3,10 +3,10 @@ id: dataio.readers.jdbc-readers
 title: JDBC Readers Spec
 owner: EY
 status: draft
-target_path: src/readers/
+target_path: src/dataio/readers/jdbc/
 owning_skill: framework-dev
 backlog: []
-provides: []
+provides: [JDBCReader, SQLServerReader, PostgresReader, OracleReader, MySQLReader, read, supports_format]
 depends_on: []
 generation_context:
   - specs/dataio/readers/jdbc-readers-spec.md
@@ -691,11 +691,10 @@ df = reader.read(spark, feed)  # 20 executors read in parallel
 2. **Secret management** — use Databricks Secrets for credentials
 3. **URL format** — source_location as "server:port/database"
 4. **Query wrapping** — custom queries wrapped in `(SELECT ...) AS alias`
-5. **Partitioning** — support partitionColumn for parallel reads
-6. **Driver classes** — use Databricks Runtime bundled drivers
-7. **fetchsize** — default 1000 rows per fetch
-8. **Credential keys** — default to "jdbc_user" and "jdbc_password"
+5. **Partitioning** — support partitionColumn for par
 
----
+## 11. Regeneration contract
+`scaffold-then-edit`: the class + method skeleton are fully generated; the Spark/connector-touching parts are generated then reviewed against current Databricks/driver docs.
 
-**End of JDBC Readers Spec (Approved)**
+## 12. References
+`specs/foundation/contracts-spec.md` (`Reader`/`LoadStrategy`/`WriteResult`) · `specs/foundation/config-model-spec.md` (`SourceConfig`/`TargetConfig`/`LoadConfig`) · `specs/dataio/schema-evolution-spec.md` · `skills/_shared/project-structure.md`.

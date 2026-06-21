@@ -7,7 +7,7 @@ target_path: src/dataio/quarantine/
 owning_skill: framework-dev.build-ingestion-engine
 backlog: [INGEST-041]
 provides: [QuarantineReason, QuarantineResult, quarantine_table_name, ensure_quarantine_table, write_quarantine]
-depends_on: [foundation.contracts, foundation.config-model]
+depends_on: [core.contracts, core.metadata]
 generation_context:
   - specs/foundation/contracts-spec.md
   - specs/foundation/config-model-spec.md

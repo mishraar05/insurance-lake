@@ -1,5 +1,5 @@
 ---
-id: foundation.contracts
+id: core.contracts
 title: Core Contracts (Typed Interfaces)
 owner: EY
 status: active
@@ -8,7 +8,7 @@ target_path: src/core/contracts/
 owning_skill: framework-dev.scaffold-structure
 backlog: [FND-031]
 provides: [Reader, LoadStrategy, Engine, RunContext, RunResult, WriteResult, Check, CheckResult, Masker]
-depends_on: [foundation.config-model]
+depends_on: [core.metadata]
 generation_context:            # the ONLY files the generator should read to build this
   - src/core/metadata/*.py
   - skills/_shared/standards.md

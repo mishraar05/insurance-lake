@@ -29,10 +29,10 @@ Validate that **any** spec is well-formed and registry-ready the moment it is au
 ## 2. Requirements
 **Functional**
 - FR-1: Parse each target spec's YAML front-matter; malformed/missing → a fatal `front-matter.parse` finding (skip that spec's remaining per-spec checks).
-- FR-2 (per-spec): required keys present; enums valid; `id` matches `<domain>.<component>`; `target_path` under an allowed tier; all 12 sections (`## 1.`..`## 12.`) present; the §6 logic-block rule.
+- FR-2 (per-spec): required keys present; enums valid; `id` matches `<tier>.<family?>.<component>` (path-mirroring, 2-3 segments); `target_path` under an allowed tier; all 12 sections (`## 1.`..`## 12.`) present; the §6 logic-block rule.
 - FR-3 (cross-spec): `id` and `target_path` unique; every `depends_on` resolves to a known spec id; no dependency cycles; **spec-per-feature** - each `(framework, feature)` maps to exactly one selectable spec, and `selectable: true` requires `framework` + `feature`.
 - FR-4: Classify every finding `error|warn`; print a deterministic, grouped report; return exit **0** (no error) / **1** (≥1 error) / **2** (tool crash). `--strict` promotes warnings to errors.
-- FR-5: Skip non-spec files - `_templates/`, `README*.md`, `STRUCTURE.txt` (no front-matter expected).
+- FR-5: Skip non-spec files - `_templates/`, `README*.md`, `STRUCTURE.txt`, `*.VALIDATION.md` (reports; no front-matter expected).
 
 **Non-functional**: pure Python (**PyYAML only**; no pyspark/network); deterministic, stable ordering; runs on a single file, a directory, or the whole `specs/` tree; fast (<1s for the corpus).
 
@@ -70,13 +70,13 @@ Two passes. **Pass 1 (per-spec)** parses front-matter + checks structure, buildi
 ## 6. Implementation logic & guidance
 **Logic / algorithm** (source of truth - the generator translates this, it does not invent it):
 - **Procedure:**
-  1. Resolve target files: expand each arg (file or dir) to `*.md`; **exclude** `_templates/`, `README*.md`, `STRUCTURE.txt`.
+  1. Resolve target files: expand each arg (file or dir) to `*.md`; **exclude** `_templates/`, `README*.md`, `STRUCTURE.txt`, `*.VALIDATION.md`.
   2. For each file: extract the front-matter block (between the first two `---` fences) and `yaml.safe_load` it. Missing or non-dict → `error` `front-matter.parse`; skip this file's remaining per-spec checks.
   3. Per-spec checks → Findings:
      - `front-matter.required` (error): every required key present (the 12 keys in FR-2).
      - `front-matter.enum` (error): `status` ∈ {draft, active, implemented}; `regeneration` ∈ {fully-generated, scaffold-then-edit}; `capability.selectable` ∈ {true, false}.
      - `front-matter.type` (error): `backlog`/`provides`/`depends_on`/`generation_context`/`acceptance` are lists; **`acceptance` and `generation_context` must be non-empty**; `capability` (if present) is a mapping. (`depends_on` may be empty; empty `provides` on a code spec or empty `backlog` → warn.)
-     - `id.format` (error): matches `^[a-z0-9]+\.[a-z0-9-]+$`.
+     - `id.format` (error): matches `^[a-z0-9]+(\.[a-z0-9_-]+){1,2}$` (2-3 path-mirroring segments).
      - `target_path.tier` (error): starts with one of the allowed tiers; (warn) if it does not end with `/`.
      - `sections.present` (error): a heading line `^##\s*{n}\.` exists for **n = 1..12**.
      - `design.solid` (warn): §5 contains "SOLID Principles" subsection (REQUIRED for all components).
@@ -134,34 +134,4 @@ Unit fixtures (mock spec files in a temp dir):
 - a known-good spec → 0 findings;
 - a spec missing `acceptance` → `front-matter.required` error;
 - a spec missing SOLID Principles in §5 → `design.solid` warning;
-- a logic spec whose §6 lacks "Edge cases" (and is not N/A) → `logic.block` error;
-- two specs both tagged `(ingestion, batch)` → `capability.spec_per_feature` error;
-- `A depends_on B`, `B depends_on A` → `depends_on.cycle` error;
-- `depends_on` to an unknown id → `depends_on.resolve` error;
-- `--strict` turns a lone warn into a non-zero exit.
-Plus front-matter `acceptance`. Target >80% coverage.
-
-## 10. Examples
-Passing:
-```
-$ python scripts/speccheck/validate_spec.py specs/
-OK  9 specs, 0 errors, 1 warning
-WARN  specs/foundation/codegen-spec.md  [examples.counter]  §10 has no counter-example
-exit 0
-```
-Failing:
-```
-$ python scripts/speccheck/validate_spec.py specs/ingestion/
-ERROR  specs/ingestion/batch-spec.md      [front-matter.required]        missing key: acceptance
-ERROR  specs/ingestion/batch-spec.md      [logic.block]                  §6 missing 'Edge cases'
-ERROR  specs/ingestion/streaming-spec.md  [capability.spec_per_feature]  (ingestion, batch) already used by ingestion/batch-spec.md
-exit 1
-```
-Counter-example (what NOT to do): the validator must **not** auto-insert the missing section or rewrite front-matter - it reports only; fixing is the author's / HITL's job.
-
-## 11. Regeneration contract
-`regeneration: fully-generated`. Regenerate the tool when the `component-spec` template or the Quality Gate changes; never hand-edit it to diverge from the template it enforces.
-
-## 12. References
-`specs/_templates/component-spec.md` (the contract it enforces) · `specs/agentic/capability-registry-spec.md` (shared front-matter parsing; this validator guarantees the well-formedness the registry assumes) · `docs/ROADMAP.md` (Quality Gate #1/#2) · `specs/foundation/codegen-spec.md` (sibling build-time tool pattern) · `control.self-review` skill (invokes it; records outcome to ABC → confidence-scoring → HITL).
-Note: `FND-006` is a **new** backlog task introduced by the Quality-Gate discipline - add it to `AI_Ready_Backlog`.
+- a logic spec whose §6

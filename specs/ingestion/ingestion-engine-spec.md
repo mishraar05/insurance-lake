@@ -7,7 +7,7 @@ target_path: src/framework/ingestion/
 owning_skill: framework-dev.build-ingestion-engine
 backlog: [ING-001]
 provides: [IngestionEngine, IngestionConfig, RetryConfig, NullRunHandle, IngestionError, ConfigurationError, TransientError, MaxRetriesExceededError, run_batch_append, validate_config]
-depends_on: [foundation.contracts, foundation.abc-sdk, foundation.config-model, dataio.file-readers, dataio.append-strategy, dataio.schema-evolution, dataio.quarantine]
+depends_on: [core.contracts, foundation.abc-sdk, core.metadata, dataio.readers.file-readers, dataio.load_strategy.append-strategy, dataio.schema-evolution, dataio.quarantine]
 generation_context:
   - specs/foundation/contracts-spec.md
   - specs/foundation/abc-sdk-spec.md
@@ -103,7 +103,7 @@ Refines two contracts (flagged in section 12): `LoadStrategy.apply(df, target, l
 Thin orchestrator with injected `Reader`/`LoadStrategy`/`ABC`; schema-evolution and quarantine called as their module contracts (patchable for tests). The engine never reads, writes, evolves schema, or owns the quarantine table.
 
 **Schema-evolution handshake (the integration contract):**
-1. `ctx = _build_resolution_context(config)` - `engine="non_declarative"` fixed; `layer` from `TargetConfig.layer`; `source_system_type`/`governance_tier`/`zero_downtime`/`paranoid`/`type_changes`/`renames_expected`/`dimensional`/`scd_type` from `LoadConfig`/`TargetConfig` where present, else the schema-evolution defaults. (Requires `foundation.config-model` to expose `layer` + `source_system_type` - see section 12.)
+1. `ctx = _build_resolution_context(config)` - `engine="non_declarative"` fixed; `layer` from `TargetConfig.layer`; `source_system_type`/`governance_tier`/`zero_downtime`/`paranoid`/`type_changes`/`renames_expected`/`dimensional`/`scd_type` from `LoadConfig`/`TargetConfig` where present, else the schema-evolution defaults. (Requires `core.metadata` to expose `layer` + `source_system_type` - see section 12.)
 2. `cfg = resolve_schema_evolution(ctx)`; `errs = validate_config(cfg)` (schema-evolution's own conflict guard) -> raise on any.
 3. `compat = validate_schema_compatibility(incoming, target_schema, cfg)`:
    - `allowed=False` -> **reject branch**: ABC phase-2 `failed`; quarantine the batch (`SCHEMA_DRIFT`, detail=reasons); do **not** apply. If `requires_rebuild`, surface it in `RunResult`.
@@ -197,4 +197,4 @@ Unit (mock Spark/ABC/Reader/Strategy): `from_params` builds nested dataclasses f
 
 ## 12. References
 `specs/foundation/contracts-spec.md` (Engine/Reader/LoadStrategy, RunContext/RunResult; **must add `WriteResult` + refine `LoadStrategy.apply(df, target, load, options) -> WriteResult`**) · `specs/foundation/abc-sdk-spec.md` (ABC, two-phase) · `specs/foundation/config-model-spec.md` (**must expose `TargetConfig.layer`, `LoadConfig.source_system_type`**) · `specs/dataio/schema-evolution-spec.md` (the handshake) · `specs/dataio/quarantine-spec.md` (delegated sink) · `skills/_shared/project-structure.md`.
-Note: `depends_on` keeps forward refs `dataio.file-readers` + `dataio.append-strategy` (single-dot ids); the validator flags them until authored - that is the intended signal, not a `pending_deps` field.
+Note: `depends_on` keeps forward refs `dataio.readers.file-readers` + `dataio.load_strategy.append-strategy` (single-dot ids); the validator flags them until authored - that is the intended signal, not a `pending_deps` field.

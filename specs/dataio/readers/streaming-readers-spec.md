@@ -3,10 +3,10 @@ id: dataio.readers.streaming-readers
 title: Streaming Readers Spec
 owner: EY
 status: draft
-target_path: src/readers/
+target_path: src/dataio/readers/streaming/
 owning_skill: framework-dev
 backlog: []
-provides: []
+provides: [AutoLoaderReader, KafkaReader, read, supports_format]
 depends_on: []
 generation_context:
   - specs/dataio/readers/streaming-readers-spec.md
@@ -618,11 +618,10 @@ All design decisions:
 2. **Schema location required** — generate default if not specified (f"/tmp/checkpoints/{feed_id}/schema")
 3. **Schema evolution mode** — default to "addNewColumns" (most flexible)
 4. **Rescued data column** — capture schema-mismatched records in _rescued_data
-5. **Kafka support** — optional, for event-driven pipelines
-6. **Checkpoint separation** — separate schema checkpoint from data checkpoint
-7. **Format mapping** — STREAMING_CSV → cloudFiles(csv), STREAMING_JSON → cloudFiles(json), etc.
-8. **Factory pattern** — use @register_reader decorator for streaming formats
+5. **Kafka support** — optional, for event-driven pi
 
----
+## 11. Regeneration contract
+`scaffold-then-edit`: the class + method skeleton are fully generated; the Spark/connector-touching parts are generated then reviewed against current Databricks/driver docs.
 
-**End of Streaming Readers Spec (Approved)**
+## 12. References
+`specs/foundation/contracts-spec.md` (`Reader`/`LoadStrategy`/`WriteResult`) · `specs/foundation/config-model-spec.md` (`SourceConfig`/`TargetConfig`/`LoadConfig`) · `specs/dataio/schema-evolution-spec.md` · `skills/_shared/project-structure.md`.

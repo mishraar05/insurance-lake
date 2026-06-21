@@ -3,10 +3,10 @@ id: dataio.load_strategy.full-refresh-strategy
 title: Full Refresh Strategy Spec
 owner: EY
 status: draft
-target_path: src/load_strategy/
+target_path: src/dataio/load_strategy/full_refresh/
 owning_skill: framework-dev
 backlog: []
-provides: []
+provides: [FullRefreshStrategy, write, supports_execution_mode, generate_ddl]
 depends_on: []
 generation_context:
   - specs/dataio/load_strategy/full-refresh-strategy-spec.md
@@ -535,12 +535,10 @@ All design decisions:
 1. **Mode** — always use overwrite mode (complete replace)
 2. **Primary keys** — accepted by protocol but not used (complete replace doesn't need PKs)
 3. **Execution modes** — support both declarative and imperative
-4. **DDL generation** — CREATE TABLE IF NOT EXISTS for idempotency
-5. **Dynamic partition overwrite** — enable via partitionOverwriteMode=dynamic
-6. **Metrics** — return rows_written, rows_inserted (equal), rows_updated (0)
-7. **Partitioning** — apply partitionBy() if partition_columns specified
-8. **Row count** — materialize DataFrame via .count() for metrics
+4. **DDL generation** — CREATE TABLE I
 
----
+## 11. Regeneration contract
+`scaffold-then-edit`: the class + method skeleton are fully generated; the Spark/connector-touching parts are generated then reviewed against current Databricks/driver docs.
 
-**End of Full Refresh Strategy Spec (Approved)**
+## 12. References
+`specs/foundation/contracts-spec.md` (`Reader`/`LoadStrategy`/`WriteResult`) · `specs/foundation/config-model-spec.md` (`SourceConfig`/`TargetConfig`/`LoadConfig`) · `specs/dataio/schema-evolution-spec.md` · `skills/_shared/project-structure.md`.

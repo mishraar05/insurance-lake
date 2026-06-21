@@ -3,10 +3,10 @@ id: dataio.readers.excel-readers
 title: Excel Readers Spec
 owner: EY
 status: draft
-target_path: src/readers/
+target_path: src/dataio/readers/excel/
 owning_skill: framework-dev
 backlog: []
-provides: []
+provides: [ExcelReader, read, supports_format]
 depends_on: []
 generation_context:
   - specs/dataio/readers/excel-readers-spec.md
@@ -398,12 +398,10 @@ df = reader.read(spark, feed)
 
 1. **Spark Excel library** — use com.crealytics.spark.excel (bundled in Databricks)
 2. **Worksheet selection** — by index (0-based) or name
-3. **Cell range format** — A1 notation (A1:D100)
-4. **Header row** — default true (first row is header)
-5. **Schema inference** — default true (auto-detect types)
-6. **dataAddress option** — format: 'SheetName'!A1:D100
-7. **One worksheet at a time** — not reading all worksheets simultaneously
+3. *
 
----
+## 11. Regeneration contract
+`scaffold-then-edit`: the class + method skeleton are fully generated; the Spark/connector-touching parts are generated then reviewed against current Databricks/driver docs.
 
-**End of Excel Readers Spec (Approved)**
+## 12. References
+`specs/foundation/contracts-spec.md` (`Reader`/`LoadStrategy`/`WriteResult`) · `specs/foundation/config-model-spec.md` (`SourceConfig`/`TargetConfig`/`LoadConfig`) · `specs/dataio/schema-evolution-spec.md` · `skills/_shared/project-structure.md`.

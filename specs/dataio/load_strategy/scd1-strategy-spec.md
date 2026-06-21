@@ -3,10 +3,10 @@ id: dataio.load_strategy.scd1-strategy
 title: SCD1 Strategy Spec
 owner: EY
 status: draft
-target_path: src/load_strategy/
+target_path: src/dataio/load_strategy/scd1/
 owning_skill: framework-dev
 backlog: []
-provides: []
+provides: [SCD1Strategy, write, supports_execution_mode, generate_ddl]
 depends_on: []
 generation_context:
   - specs/dataio/load_strategy/scd1-strategy-spec.md
@@ -532,12 +532,12 @@ abc_sdk.cost_track(
 ## 9. Decisions Made
 
 1. **Primary keys required** — raise ValueError if missing
-2. **No history tracking** — updates overwrite (simpler than SCD2)
-3. **MERGE semantics** — MATCHED → UPDATE, NOT MATCHED → INSERT
-4. **Initial load** — if table doesn't exist, create with first batch
-5. **Execution modes** — support both declarative and imperative
-6. **DDL generation** — CREATE TABLE IF NOT EXISTS (no SCD columns)
 
----
+## 10. Examples
+See §6 for the canonical flow. **Conformant:** a typical read/write succeeds and returns the contracted type. **Counter-example:** do NOT hard-code connection details or bypass the `core.contracts` protocol.
 
-**End of SCD1 Strategy Spec (Approved)**
+## 11. Regeneration contract
+`scaffold-then-edit`: the class + method skeleton are fully generated; the Spark/connector-touching parts are generated then reviewed against current Databricks/driver docs.
+
+## 12. References
+`specs/foundation/contracts-spec.md` (`Reader`/`LoadStrategy`/`WriteResult`) · `specs/foundation/config-model-spec.md` (`SourceConfig`/`TargetConfig`/`LoadConfig`) · `specs/dataio/schema-evolution-spec.md` · `skills/_shared/project-structure.md`.

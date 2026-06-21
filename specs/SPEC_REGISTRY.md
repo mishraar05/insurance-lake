@@ -53,9 +53,9 @@
 | Spec ID | Title | Status | Target Path | Provides | Depends On |
 |---------|-------|--------|-------------|----------|------------|
 | `foundation.abc-sdk` | ABC SDK (Audit, Balance, Control) | active | `src/core/sdk/` | ABC, RunHandle, start_run (+6 more) | None |
-| `foundation.codegen` | Schema Codegen (metadata -> DDL + JSON-schema) | active | `scripts/codegen/` | sql_type, model_to_ddl, model_to_jsonschema (+2 more) | foundation.config-model |
-| `foundation.config-model` | Metadata / Config Model | active | `src/core/metadata/` | SourceConfig, TargetConfig, LoadConfig (+3 more) | abc-sdk-spec |
-| `foundation.contracts` | Core Contracts (Typed Interfaces) | active | `src/core/contracts/` | Reader, LoadStrategy, Engine (+5 more) | foundation.config-model |
+| `scripts.codegen` | Schema Codegen (metadata -> DDL + JSON-schema) | active | `scripts/codegen/` | sql_type, model_to_ddl, model_to_jsonschema (+2 more) | core.metadata |
+| `core.metadata` | Metadata / Config Model | active | `src/core/metadata/` | SourceConfig, TargetConfig, LoadConfig (+3 more) | abc-sdk-spec |
+| `core.contracts` | Core Contracts (Typed Interfaces) | active | `src/core/contracts/` | Reader, LoadStrategy, Engine (+5 more) | core.metadata |
 | `foundation.control-tables-ddl` | FND-002 - Control Tables DDL Specification | draft | `src/core/` |  | None |
 | `foundation.project-structure` | FND-030 - Project Structure Specification (DAB Scaffold) | draft | `src/core/` |  | None |
 | `foundation.spec-validator` | Spec Validator (validate any spec after authoring) | active | `scripts/speccheck/` | Finding, parse_front_matter, check_spec (+3 more) | None |
@@ -139,40 +139,40 @@ Find which spec provides a specific capability (function, class, or feature).
 |------------|---------------------|
 | `ABC` | `foundation.abc-sdk` |
 | `Capability` | `agentic.capability-registry` |
-| `Check` | `foundation.contracts` |
-| `CheckResult` | `foundation.contracts` |
-| `ConfigLoader` | `foundation.config-model` |
-| `DQRuleConfig` | `foundation.config-model` |
-| `Engine` | `foundation.contracts` |
+| `Check` | `core.contracts` |
+| `CheckResult` | `core.contracts` |
+| `ConfigLoader` | `core.metadata` |
+| `DQRuleConfig` | `core.metadata` |
+| `Engine` | `core.contracts` |
 | `Finding` | `foundation.spec-validator` |
-| `LoadConfig` | `foundation.config-model` |
-| `LoadStrategy` | `foundation.contracts` |
-| `Masker` | `foundation.contracts` |
-| `Reader` | `foundation.contracts` |
-| `RunContext` | `foundation.contracts` |
+| `LoadConfig` | `core.metadata` |
+| `LoadStrategy` | `core.contracts` |
+| `Masker` | `core.contracts` |
+| `Reader` | `core.contracts` |
+| `RunContext` | `core.contracts` |
 | `RunHandle` | `foundation.abc-sdk` |
-| `RunResult` | `foundation.contracts` |
-| `SourceConfig` | `foundation.config-model` |
-| `TargetConfig` | `foundation.config-model` |
-| `TransformConfig` | `foundation.config-model` |
+| `RunResult` | `core.contracts` |
+| `SourceConfig` | `core.metadata` |
+| `TargetConfig` | `core.metadata` |
+| `TransformConfig` | `core.metadata` |
 | `build_plan` | `agentic.capability-registry` |
 | `check_corpus` | `foundation.spec-validator` |
 | `check_spec` | `foundation.spec-validator` |
 | `end_run` | `foundation.abc-sdk` |
-| `generate` | `foundation.codegen` |
+| `generate` | `scripts.codegen` |
 | `load_registry` | `agentic.capability-registry` |
 | `log_audit` | `foundation.abc-sdk` |
 | `log_balance` | `foundation.abc-sdk` |
 | `log_cost` | `foundation.abc-sdk` |
 | `log_dq` | `foundation.abc-sdk` |
 | `log_exception` | `foundation.abc-sdk` |
-| `main` | `foundation.codegen`, `foundation.spec-validator` |
+| `main` | `scripts.codegen`, `foundation.spec-validator` |
 | `menu` | `agentic.capability-registry` |
-| `model_to_ddl` | `foundation.codegen` |
-| `model_to_jsonschema` | `foundation.codegen` |
+| `model_to_ddl` | `scripts.codegen` |
+| `model_to_jsonschema` | `scripts.codegen` |
 | `parse_front_matter` | `foundation.spec-validator` |
 | `resolve_selection` | `agentic.capability-registry` |
-| `sql_type` | `foundation.codegen` |
+| `sql_type` | `scripts.codegen` |
 | `start_run` | `foundation.abc-sdk` |
 | `validate` | `foundation.spec-validator` |
 
@@ -190,15 +190,15 @@ Find which spec provides a specific capability (function, class, or feature).
 These capabilities are required but not yet provided by any spec:
 
 * `abc-sdk-spec`
-* `foundation.config-model`
+* `core.metadata`
 
 ### Specs with Dependencies
 
 | Spec | Depends On |
 |------|------------|
-| `foundation.config-model` | `abc-sdk-spec` |
-| `foundation.codegen` | `foundation.config-model` |
-| `foundation.contracts` | `foundation.config-model` |
+| `core.metadata` | `abc-sdk-spec` |
+| `scripts.codegen` | `core.metadata` |
+| `core.contracts` | `core.metadata` |
 
 
 ---
@@ -213,8 +213,8 @@ These capabilities are required but not yet provided by any spec:
 **Example:**
 ```
 Need: ConfigLoader class
-→ Capability Index shows: provided by foundation.config-model
-→ Check foundation.config-model-spec.md
+→ Capability Index shows: provided by core.metadata
+→ Check core.metadata-spec.md
 ```
 
 ### Understanding Dependencies

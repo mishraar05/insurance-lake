@@ -105,7 +105,7 @@ menu() -> {
 }
 # user picks ingestion/streaming:
 build_plan(["ingestion.streaming"]) ->
-  [foundation.contracts, foundation.config-model, dataio.readers,
+  [core.contracts, core.metadata, dataio.readers,
    dataio.load-strategy, ingestion.engine, ingestion.streaming]   # foundation-first, ordered
 ```
 Counter-example: Do NOT maintain a separate hand-edited menu file alongside the spec front-matter - this violates single source of truth and will drift out of sync. The menu is always derived from spec front-matter at runtime.

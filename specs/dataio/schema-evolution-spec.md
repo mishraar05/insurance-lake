@@ -7,7 +7,7 @@ target_path: src/dataio/schema_evolution/
 owning_skill: framework-dev.build-ingestion-engine
 backlog: [INGEST-040]
 provides: [ResolutionContext, SchemaEvolutionConfig, QuarantineSchemaConfig, CompatibilityResult, resolve_schema_evolution, validate_config, validate_schema_compatibility, autoloader_options, delta_table_properties, delta_write_options, capture_drift]
-depends_on: [foundation.contracts]
+depends_on: [core.contracts]
 generation_context:
   - specs/foundation/contracts-spec.md
   - skills/_shared/project-structure.md
@@ -115,7 +115,7 @@ def capture_drift(df: "DataFrame", expected_columns: list[str],
 - Output: a `SchemaEvolutionConfig`; a list of config-conflict errors; a `CompatibilityResult`; engine option/property dicts; a `(clean, quarantine)` DataFrame pair. Side effects: none in the appliers - ABC audit is written by the **calling engine** (section 8).
 
 ## 5. Design
-Pipeline: **`resolve` -> `validate_config` -> `validate_schema_compatibility` -> applier -> engine writes -> ABC**. The resolver is a pure layer-aware decision tree producing one config; the two validators are pure guards (config conflicts, and schema compatibility against the live target); appliers are **track-specific** and never mix. `_rescued_data` exists **only** declaratively; batch synthesizes it via `capture_drift`. `StructType`/`DataFrame` typing comes from `core/contracts` (TYPE_CHECKING import) - that is why `foundation.contracts` is a dependency. Config models live **local to this component** (not `core/metadata`, not codegen SSOT). This is a **selectable** capability under the `ingestion` menu group.
+Pipeline: **`resolve` -> `validate_config` -> `validate_schema_compatibility` -> applier -> engine writes -> ABC**. The resolver is a pure layer-aware decision tree producing one config; the two validators are pure guards (config conflicts, and schema compatibility against the live target); appliers are **track-specific** and never mix. `_rescued_data` exists **only** declaratively; batch synthesizes it via `capture_drift`. `StructType`/`DataFrame` typing comes from `core/contracts` (TYPE_CHECKING import) - that is why `core.contracts` is a dependency. Config models live **local to this component** (not `core/metadata`, not codegen SSOT). This is a **selectable** capability under the `ingestion` menu group.
 
 **Naming convention (deliberate):** appliers are named for the technology they emit options for - `autoloader_options` (declarative) vs `delta_write_options`/`delta_table_properties` (non-declarative) - because each is product-specific and the name disambiguates the track. They are never called together.
 
