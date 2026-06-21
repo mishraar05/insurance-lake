@@ -13,6 +13,8 @@ provides:
   - create_quarantine_table
   - IngestionError
   - MaxRetriesExceededError
+  - ConfigurationError
+  - NullRunHandle
 depends_on:
   - foundation.abc-sdk
   - foundation.config-model
@@ -172,6 +174,17 @@ class ConfigurationError(IngestionError):
     pass
 
 @dataclass
+class NullRunHandle:
+    """
+    Placeholder RunHandle when ABC.start_run() fails.
+    
+    Allows engine to continue execution without ABC logging.
+    All ABC operations will be no-ops with this handle.
+    """
+    run_id: str = "UNKNOWN"
+    trace_id: str = "UNKNOWN"
+
+@dataclass
 class IngestionConfig:
     """Ingestion-specific configuration."""
     load: LoadConfig
@@ -180,6 +193,7 @@ class IngestionConfig:
     retry_config: Optional["RetryConfig"] = None
     enable_quarantine: bool = True
 
+    validate_source_format: bool = True  # Set False to skip format validation for faster startup
 @dataclass
 class RetryConfig:
     """Retry configuration."""
@@ -751,9 +765,9 @@ def run(self, context: RunContext) -> RunResult:
             run_type=context.run_type
         )
     except Exception as e:
-        # If ABC start fails, log and continue (create placeholder run_handle)
-        print(f"WARNING: ABC start_run failed: {str(e)}", file=sys.stderr)
-        run_handle = None  # Proceed without ABC (or create mock handle)
+        # If ABC start fails, create NullRunHandle and continue
+        print(f"WARNING: ABC start_run failed: {str(e)}\", file=sys.stderr)
+        run_handle = NullRunHandle()  # Safe fallback - allows engine to continue
     
     try:
         # Route to appropriate run method
@@ -763,14 +777,14 @@ def run(self, context: RunContext) -> RunResult:
             raise ConfigurationError(f"Unknown run_type: {context.run_type}")
         
         # End run with success (defensive)
-        if run_handle:
+        if not isinstance(run_handle, NullRunHandle):
             self._log_abc_safe(self.abc.end_run, run_handle, status="SUCCESS")
         
         return result
     
     except Exception as e:
         # Log exception and end run with failure (defensive)
-        if run_handle:
+        if not isinstance(run_handle, NullRunHandle):
             self._log_abc_safe(self.abc.log_exception, run_handle, exception=e)
             self._log_abc_safe(self.abc.end_run, run_handle, status="FAILED")
         raise
@@ -808,16 +822,17 @@ def validate_config(self, config: IngestionConfig) -> None:
                 if test_df.isEmpty():
                     print(f"WARNING: Source path is empty: {source.connection_string}")
                 
-                # Verify format compatibility (attempt to read 1 row with actual format)
-                format_str = source.file_format.lower()
-                try:
-                    test_read = self.spark.read.format(format_str).load(source.connection_string).limit(1)
-                    test_read.count()  # Force execution
-                except Exception as format_error:
-                    raise ConfigurationError(
-                        f"Source format mismatch: Config specifies '{format_str}' but file at '{source.connection_string}' "
-                        f"cannot be read with that format. Error: {str(format_error)}"
-                    )
+                # Verify format compatibility (optional - can be disabled for performance)
+                if config.validate_source_format:
+                    format_str = source.file_format.lower()
+                    try:
+                        test_read = self.spark.read.format(format_str).load(source.connection_string).limit(1)
+                        test_read.count()  # Force execution
+                    except Exception as format_error:
+                        raise ConfigurationError(
+                            f"Source format mismatch: Config specifies '{format_str}' but file at '{source.connection_string}' "
+                            f"cannot be read with that format. Error: {str(format_error)}"
+                        )
             except ConfigurationError:
                 raise  # Re-raise format errors
             except Exception as e:
@@ -906,6 +921,10 @@ def run_batch_append(
             run_handle
         )
         
+        # Cache DataFrame to avoid redundant scans during count and write
+        # Note: Only beneficial if DataFrame is used multiple times (e.g., count + write + quarantine)
+        df.cache()
+        
         # Count source rows
         rows_read = df.count()
         self._log_abc_safe(self.abc.log_audit, run_handle, rows_read=rows_read)
@@ -919,6 +938,9 @@ def run_batch_append(
             config.target,
             config.load
         )
+        
+        # Unpersist DataFrame after write to free memory
+        df.unpersist()
         
         # For append, rows_written == rows_read (no deduplication)
         rows_written = rows_read
@@ -960,8 +982,8 @@ def run_batch_append(
         )
     
     except Exception as e:
-        # Handle quarantine if enabled AND df exists
-        if config.enable_quarantine and df is not None:
+        # Handle quarantine if enabled AND df exists in scope
+        if config.enable_quarantine and 'df' in locals() and df is not None:
             try:
                 self._quarantine_batch(df, config, run_handle, str(e))
             except Exception as quarantine_error:
@@ -1003,6 +1025,10 @@ def _read_sources(
             df_i = self.reader.read(source, config.load)
             
             # Log per-source metrics (defensive)
+            
+            # PERFORMANCE NOTE: Per-source counting triggers a full scan of df_i.
+            # Trade-off: Detailed observability (per-source metrics) vs. performance (skip counts).
+            # For large multi-source loads, consider making per-source logging optional.
             source_count = df_i.count()
             self._log_abc_safe(
                 self.abc.log_audit,
@@ -1111,12 +1137,13 @@ def _retry_with_backoff(
     
     # Execute with retry
     last_error = None
+    had_error = False
     for attempt in range(1, retry_config.max_attempts + 1):
         try:
             result = func(*args, **kwargs)
             
-            # Log retry success (if this wasn't the first attempt)
-            if attempt > 1:
+            # Log retry success (only if we recovered from a previous error)
+            if had_error and attempt > 1:
                 self._log_abc_safe(
                     self.abc.log_control,
                     run_handle,
@@ -1128,6 +1155,7 @@ def _retry_with_backoff(
         
         except Exception as e:
             last_error = e
+            had_error = True
             
             # Check if error is fatal
             if is_fatal_error(e):
@@ -1139,14 +1167,15 @@ def _retry_with_backoff(
                 )
                 raise
             
-            # Check if error is transient
-            if is_transient_error(e):
+            # Check if error is transient OR unknown (default to retry for safety)
+            if is_transient_error(e) or not is_fatal_error(e):
                 self._log_abc_safe(
                     self.abc.log_control,
                     run_handle,
                     control_type="RETRY_ATTEMPT",
                     attempt=attempt,
-                    error=str(e)
+                    error=str(e),
+                    error_classification="TRANSIENT" if is_transient_error(e) else "UNKNOWN_RETRYABLE"
                 )
                 
                 # Retry if attempts remaining
@@ -1159,15 +1188,6 @@ def _retry_with_backoff(
                     raise MaxRetriesExceededError(
                         f"Max retries exceeded ({retry_config.max_attempts} attempts). Last error: {str(e)}"
                     )
-            
-            # Unknown error - treat as fatal
-            self._log_abc_safe(
-                self.abc.log_exception,
-                run_handle,
-                exception=e,
-                error_type="UNKNOWN_FATAL"
-            )
-            raise
     
     # Should never reach here, but for safety
     raise MaxRetriesExceededError(
@@ -1240,6 +1260,8 @@ def create_quarantine_table(self, config: IngestionConfig) -> None:
     4. Add metadata columns to schema
     5. Create quarantine table
     """
+    from pyspark.sql.functions import to_date
+    
     # Build quarantine table name
     quarantine_table = f"{config.target.catalog_name}.{config.target.schema_name}.{config.target.table_name}_quarantine"
     
@@ -1264,12 +1286,12 @@ def create_quarantine_table(self, config: IngestionConfig) -> None:
                                   .withColumn("quarantine_reason", lit("").cast(StringType())) \
                                   .withColumn("quarantine_timestamp", current_timestamp())
         
-        # Create table with schema
+        # Create table with schema - partition by date of quarantine_timestamp
         quarantine_df.write.format("delta") \
                      .option("delta.enableChangeDataFeed", "true") \
                      .option("delta.autoOptimize.optimizeWrite", "true") \
                      .option("delta.autoOptimize.autoCompact", "true") \
-                     .partitionBy("quarantine_timestamp") \
+                     .partitionBy(to_date("quarantine_timestamp")) \
                      .saveAsTable(quarantine_table)
     
     except Exception:
@@ -1355,6 +1377,7 @@ self.abc.log_audit(run_handle, rows_read=count)
 **TRANSIENT vs FATAL:**
 * ONLY retry transient errors (network, throttling, temporary unavailability)
 * NEVER retry fatal errors (schema mismatch, permission denied, invalid config)
+* DEFAULT to retry for unknown errors (fail-safe approach)
 
 **MAX ATTEMPTS:**
 * ALWAYS respect `retry_config.max_attempts`
@@ -1504,6 +1527,7 @@ raise PermissionError("Permission denied for catalog {catalog}. Request USAGE an
 * `test_retry_fatal_fail`: Retry fails immediately on fatal error
 * `test_quarantine_batch`: Batch-level quarantine on write failure
 * `test_log_abc_safe`: Defensive ABC logging (exception doesn't propagate)
+* `test_null_run_handle`: Engine continues with NullRunHandle when ABC fails
 
 **Mocking:**
 * Mock `SparkSession`, `ABC`, `Reader`, `LoadStrategy`
@@ -1585,7 +1609,7 @@ if not hasattr(reader, 'read'):
 * Log: `rows_read`, `rows_written`, `delta`, `reconciliation_status`
 
 **Retry Attempts:**
-* Log: `control_type="RETRY_ATTEMPT"`, `attempt`, `error`
+* Log: `control_type="RETRY_ATTEMPT"`, `attempt`, `error`, `error_classification`
 * Log: `control_type="RETRY_SUCCESS"`, `attempt`
 
 **Quarantine:**
@@ -1640,13 +1664,23 @@ if not hasattr(reader, 'read'):
 * [ ] All public methods have type hints (no `Any` in signatures except `Callable[..., Any]`)
 * [ ] All guardrails from §7 enforced in generated code
 * [ ] Custom exceptions defined (IngestionError, MaxRetriesExceededError, ConfigurationError)
+* [ ] NullRunHandle class implemented for safe ABC failure handling
 
 **Functional:**
 * [ ] Single-source batch append: 10M records × 20 columns, <5 min on i4i.xlarge × 3
 * [ ] Multi-source batch append: 3 sources × 10M records, <10 min on same cluster
 * [ ] Retry succeeds on transient errors (95th percentile: 2 attempts)
+* [ ] Retry defaults to retrying unknown errors (fail-safe behavior)
 * [ ] Quarantine captures failed batches (100% data retention)
+* [ ] Quarantine only triggered when DataFrame is in scope
 * [ ] Balance check compares rows_read vs rows_written (not table count)
+
+**Performance:**
+* [ ] DataFrame cached before count to avoid redundant scans
+* [ ] DataFrame unpersisted after write to free memory
+* [ ] Format validation optional via validate_source_format flag
+* [ ] Per-source counting documented with performance trade-offs
+
 
 **Non-Functional:**
 * [ ] Unit test coverage >80% (pytest-cov)
@@ -1656,9 +1690,10 @@ if not hasattr(reader, 'read'):
 
 **Observability:**
 * [ ] Every run logs to ABC (audit, balance, cost) via _log_abc_safe
-* [ ] Retry attempts logged to abc_control
+* [ ] Retry attempts logged to abc_control with error classification
 * [ ] Quarantine events logged to abc_control
 * [ ] ABC failures never propagate (defensive logging)
+* [ ] NullRunHandle allows engine to continue when ABC unavailable
 
 **Documentation:**
 * [ ] All public methods documented (docstrings)
