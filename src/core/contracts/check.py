@@ -1,3 +1,4 @@
+# src/core/contracts/check.py
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol, runtime_checkable, TYPE_CHECKING
@@ -11,10 +12,9 @@ class CheckResult:
     rule_id: str
     passed: bool
     failed_count: int
-    action: str  # WARN | FAIL | QUARANTINE
+    action: str                       # WARN | FAIL | QUARANTINE
 
 
 @runtime_checkable
 class Check(Protocol):
-    """Evaluates a DQ rule against a DataFrame."""
     def evaluate(self, df: "DataFrame", rule: DQRuleConfig) -> CheckResult: ...
