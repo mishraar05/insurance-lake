@@ -16,6 +16,8 @@ acceptance:
   - "python scripts/speccheck/validate_spec.py specs/                                # validate all specs; exit 0 if no ERROR"
   - "python scripts/speccheck/validate_spec.py specs/foundation/contracts-spec.md    # one spec"
   - "pytest tests/scripts/test_validate_spec.py"
+  - "ruff check scripts/speccheck/ tests/scripts/                                    # PEP 8 + import order + naming + Google docstrings"
+  - "black --check scripts/speccheck/ tests/scripts/                                 # formatting (line length 88)"
 regeneration: fully-generated
 ---
 

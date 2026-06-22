@@ -30,6 +30,7 @@ In this project, **the spec is the ONLY source of truth.** Your job is to **tran
 5. **Tests too.** Generate the §9 tests at the mirrored `tests/...` path.
 6. **Acceptance = done.** Every front-matter `acceptance:` command must pass; self-check before finishing.
 7. **No placeholders / no invention.** Complete, runnable code - no TODOs. If completing it needs a detail not in the spec, that is a Phase-2 gap -> stop and report.
+8. **Code style is enforced (never skip).** PEP 8 via `ruff` + `black`; a **Google-style docstring** (`Args:` / `Returns:` / `Raises:`) on **every** public module, class, and function; type hints on every public signature; comments explaining non-obvious logic and each decision branch. `ruff check` and `black --check` (config in `pyproject.toml`) must pass - treat them like any other `acceptance:` command. Full standard: `reference/standards.md`.
 
 ## Procedure
 1. Read the target spec end to end (front-matter + 12 sections) + `reference/project-structure.md`.
@@ -41,6 +42,7 @@ In this project, **the spec is the ONLY source of truth.** Your job is to **tran
 - the **target spec** the user names (in `specs/...`) - the source of truth for THIS task.
 - `reference/project-structure.md` - canonical DAB placement map.
 - `reference/component-spec-template.md` - the spec contract (required front-matter keys + the 12 section titles).
+- `reference/standards.md` - shared coding standard (incl. the **code style & documentation** rule: PEP 8 + black + Google docstrings). The machine-checkable config is `pyproject.toml` at the repo root (ruff + black), which `ruff`/`black` auto-discover when run in the workspace.
 
 ## Example task - Spec Validator
-Target spec: `specs/foundation/spec-validation-spec.md`. **Phase 1 first** (report gaps); then on go-ahead generate the §3 interface into `scripts/speccheck/validate_spec.py` + tests into `tests/scripts/test_validate_spec.py`. Hard constraints: pure Python + PyYAML only; no Spark / network / ABC; report-only; single file. Acceptance: `python scripts/speccheck/validate_spec.py specs/` runs (exit 0 if no ERROR) and `pytest tests/scripts/test_validate_spec.py` is green. Then run the validator on `specs/` and show the findings.
+Target spec: `specs/foundation/spec-validation-spec.md`. **Phase 1 first** (report gaps); then on go-ahead generate the §3 interface into `scripts/speccheck/validate_spec.py` + tests into `tests/scripts/test_validate_spec.py`. Hard constraints: pure Python + PyYAML only; no Spark / network / ABC; report-only; single file. Acceptance: `python scripts/speccheck/validate_spec.py specs/` runs (exit 0 if no ERROR), `pytest tests/scripts/test_validate_spec.py` is green, and `ruff check scripts/ tests/` + `black --check scripts/ tests/` pass. Then run the validator on `specs/` and show the findings.

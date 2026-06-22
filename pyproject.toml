@@ -1,0 +1,34 @@
+# InsureLake - code style & documentation standard (machine-checkable).
+# This is the concrete, enforced definition of "PEP 8 + docstrings" for all
+# generated code. The skill/template/prompt tell Genie Code to follow it; these
+# linters PROVE it did (the deterministic backstop).
+#
+# Check (used in every code spec's `acceptance:`):
+#     ruff check src/ scripts/ tests/      # PEP 8 + import order + naming + docstrings
+#     black --check src/ scripts/ tests/   # formatting
+# Auto-fix locally before committing:
+#     ruff check --fix . && black .
+
+[tool.black]
+line-length = 88                 # black's PEP 8-compatible default
+target-version = ["py310"]       # Databricks Runtime 13.x+ Python
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+src = ["src", "scripts", "tests"]
+
+[tool.ruff.lint]
+# E,W = pycodestyle (PEP 8)   F = pyflakes (real errors / unused)
+# I   = isort (import order)  N = pep8-naming   D = pydocstyle (docstrings)
+select = ["E", "W", "F", "I", "N", "D"]
+# black owns line length; defer E501 to it to avoid formatter/linter conflicts.
+ignore = ["E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"   # Args:/Returns:/Raises: blocks; enables the Google subset of D rules
+
+[tool.ruff.lint.per-file-ignores]
+# Tests need not carry a docstring on every fixture/case; empty package inits are fine.
+"tests/**" = ["D"]
+"**/__init__.py" = ["D104"]

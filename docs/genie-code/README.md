@@ -8,7 +8,7 @@
 3. **Two-phase prompting** (`GENERATION-PROMPT.md`): **Phase 1 = GAP ANALYSIS only (no code)** -> Genie Code lists every detail missing from the spec and stops; you enrich the spec; **Phase 2 = GENERATE**. This forces gaps to surface *before* code.
 
 ## The 2 deterministic backstops (catch what slips - no trust in the model)
-4. **The spec's `acceptance:` + your `spec-validator`.** Diff the generated public signatures against the spec's §3 and run the spec's `acceptance:` commands. A mismatch or failure is objective proof of drift - no LLM goodwill required.
+4. **The spec's `acceptance:` (now incl. `ruff` + `black`) + your `spec-validator`.** Diff the generated public signatures against the spec's §3 and run the spec's `acceptance:` commands - which include `ruff check` (PEP 8 + Google-style docstrings + naming + import order) and `black --check` (formatting) per `pyproject.toml`. A signature mismatch or a lint/format failure is objective proof of drift - no LLM goodwill required.
 5. **Unity Catalog governance.** Genie Code only touches assets you're authorized for and asks before modifying tables.
 
 > The *pause* comes from "Ask first" + Phase-1 gap analysis; the *no-invention guarantee* comes from the validator/acceptance check.
@@ -32,8 +32,9 @@ Then in Genie Code (Ask-first mode): *"Use `insurelake-spec-codegen`. Phase 1 ga
 | 5 | **Constraints honored** - only the spec's named deps; no Spark/network/ABC if forbidden | |
 | 6 | **Acceptance passes** - the spec's `acceptance:` commands succeed | |
 | 7 | **No invention** - nothing added that the spec doesn't state | |
+| 8 | **Style clean** - `ruff check` + `black --check` pass; every public module/class/function has a Google-style docstring | |
 
-6/6-7 = the spec is generation-ready and the loop works. < that = the failing row tells you whether to enrich the **spec** or tighten the **skill**.
+7-8/8 = the spec is generation-ready and the loop works. < that = the failing row tells you whether to enrich the **spec** or tighten the **skill**.
 
 ## If it still invents instead of pausing
 - Confirm approval mode is **"Ask first"**, not Auto-approve.

@@ -20,8 +20,9 @@ Now generate, strictly per `specs/foundation/spec-validation-spec.md`:
 2. Implement `## 6` literally - Procedure in order, Decision rules, Key code fragments as written, every Edge case.
 3. Write ONLY to the spec's target_path: `scripts/speccheck/validate_spec.py`; tests at `tests/scripts/test_validate_spec.py`.
 4. Hard constraints: pure Python + PyYAML only; no Spark / network / ABC; report-only; single file.
-5. No TODOs/placeholders. If you hit any detail not in the spec, STOP and report it as a new SPEC GAP - do not invent.
-Output each file's full content + the commands to run. Then run `python scripts/speccheck/validate_spec.py specs/` and show the findings.
+5. Code style: PEP 8 via ruff + black; a Google-style docstring (Args:/Returns:/Raises:) on every public module, class, and function; type hints on every public signature; comments on non-obvious logic. (Config: `pyproject.toml`.)
+6. No TODOs/placeholders. If you hit any detail not in the spec, STOP and report it as a new SPEC GAP - do not invent.
+Output each file's full content + the commands to run. Then run the spec's acceptance - `python scripts/speccheck/validate_spec.py specs/`, `ruff check scripts/ tests/`, `black --check scripts/ tests/` - and show the findings.
 ---
 
 ## Then verify (deterministic - do not trust "looks done")

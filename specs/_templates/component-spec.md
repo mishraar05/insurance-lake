@@ -13,7 +13,9 @@ depends_on: [<other spec ids>]
 generation_context:                      # the ONLY files the generator should read (bounds context)
   - <path/glob>
 acceptance:                              # executable commands; ALL must pass = Definition of Done
-  - "<command>"
+  - "<command>"                          # e.g. pytest tests/<tier>/test_<component>.py
+  - "ruff check src/ scripts/ tests/"    # PEP 8 + import order + naming + Google docstrings
+  - "black --check src/ scripts/ tests/" # formatting (line length 88)
 regeneration: fully-generated|scaffold-then-edit   # may the generator overwrite this component?
 capability:                               # OPTIONAL - only on user-selectable FEATURE specs (spec-per-feature)
   framework: <ingestion|harmonization|...>   # menu group the feature belongs to
@@ -103,6 +105,7 @@ Describe how this component follows SOLID principles:
 - Follow SOLID principles (see section 5)
 - Use appropriate design patterns (see section 5)
 - Design for extensibility (config-driven where possible)
+- **Code style (all components):** PEP 8 via `ruff` + `black`; **Google-style docstrings** (`Args:`/`Returns:`/`Raises:`) on every public module, class, and function; type hints on every public signature; comments explaining non-obvious logic and each decision branch. Machine-checked by `pyproject.toml` — `ruff check` and `black --check` must pass (full standard in `_shared/standards.md`).
 
 ## 7. Validation, edge cases & versioning policy
 Edge cases; breaking-change policy; how signatures are enforced (mypy).
