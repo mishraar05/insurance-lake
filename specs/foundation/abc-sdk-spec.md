@@ -428,36 +428,418 @@ COMMENT 'Cost and consumption tracking (FinOps)';
 
 ---
 
-## 6. Logic / algorithm
+## 6. Implementation logic & guidance
 
-### Initialization
-1. Accept catalog, schema, Spark session
-2. Test connectivity to Unity Catalog
-3. Verify ABC tables exist
-4. Initialize table writers
+This section provides **exact code implementations** for all ABC SDK methods. Code generators MUST implement these patterns exactly.
 
-### start_run() Flow
-1. Generate UUID for `run_id`
-2. Generate or accept `trace_id`
-3. Insert RUNNING status into `abc_audit`
-4. Return `RunHandle(run_id, trace_id)`
+### 6.1 Initialization Pattern
 
-### Logging Flow (log_audit, log_balance, log_dq, log_cost)
-1. Accept `run_id` and metrics dict
-2. Validate inputs (non-null run_id, valid metric keys)
-3. Upsert into respective table (idempotent on PK)
-4. If write fails: log warning, write to local JSON, continue
+```python
+class ABC:
+    def __init__(
+        self,
+        catalog: str = "insurelake_abc",
+        schema: str = "abc",
+        spark: Optional[SparkSession] = None
+    ):
+        """Initialize ABC SDK."""
+        import logging
+        from pyspark.sql import SparkSession
+        
+        self.catalog = catalog
+        self.schema = schema
+        self.spark = spark or SparkSession.builder.getOrCreate()
+        self.logger = logging.getLogger(__name__)
+        
+        # Test connectivity (non-blocking)
+        try:
+            self.spark.sql(f"USE CATALOG {self.catalog}")
+            self.spark.sql(f"USE SCHEMA {self.schema}")
+        except Exception as e:
+            self.logger.warning(f"ABC connectivity check failed: {e}")
+```
 
-### end_run() Flow
-1. Accept `run_id`, status, optional final metrics
-2. Update `abc_audit` row: set `end_ts`, `duration_seconds`, `status`
-3. Merge any final metrics
-4. Commit
+### 6.2 start_run() Implementation
 
-### Resilience Strategy
-- **Development/Test**: Raise exceptions immediately
-- **Production**: Downgrade ABC errors to warnings, log locally, continue data pipeline
-- **Local Fallback**: Write ABC entries to local JSON file if Delta writes fail
+```python
+def start_run(
+    self,
+    component: str,
+    entity: str,
+    run_type: str,
+    trace_id: Optional[str] = None
+) -> RunHandle:
+    """Start a new run and return RunHandle."""
+    import uuid
+    from datetime import datetime
+    
+    # Step 1: Generate run_id (always new UUID)
+    run_id = str(uuid.uuid4())
+    
+    # Step 2: Generate or accept trace_id
+    if trace_id is None:
+        trace_id = str(uuid.uuid4())
+    
+    # Step 3: Get current identity
+    try:
+        identity = self.spark.conf.get("spark.databricks.user.email", "unknown")
+    except Exception:
+        identity = "unknown"
+    
+    # Step 4: Insert RUNNING status into abc_audit (idempotent)
+    audit_record = {
+        "run_id": run_id,
+        "trace_id": trace_id,
+        "component": component,
+        "entity": entity,
+        "run_type": run_type,
+        "status": "RUNNING",
+        "start_ts": datetime.utcnow(),
+        "identity": identity,
+        "created_ts": datetime.utcnow()
+    }
+    
+    try:
+        df = self.spark.createDataFrame([audit_record])
+        df.write.format("delta").mode("append").saveAsTable(
+            f"{self.catalog}.{self.schema}.abc_audit"
+        )
+    except Exception as e:
+        # Resilience: log warning, write local fallback, continue
+        self.logger.warning(f"ABC write failed for run {run_id}: {e}")
+        self._write_local_fallback("abc_audit", audit_record)
+    
+    # Step 5: Return handle
+    return RunHandle(run_id=run_id, trace_id=trace_id)
+```
+
+### 6.3 end_run() Implementation
+
+```python
+def end_run(
+    self,
+    run_id: str,
+    status: str,
+    metrics: Optional[Dict] = None
+):
+    """Close a run with final status."""
+    from datetime import datetime
+    from pyspark.sql.functions import col, lit, when
+    
+    # Validate status
+    valid_statuses = {"SUCCESS", "FAILED", "TIMEOUT"}
+    if status not in valid_statuses:
+        raise ABCValidationError(
+            f"Invalid status '{status}'. Must be one of: {valid_statuses}"
+        )
+    
+    # Calculate end_ts and duration
+    end_ts = datetime.utcnow()
+    
+    try:
+        # Read existing record to calculate duration
+        audit_table = f"{self.catalog}.{self.schema}.abc_audit"
+        existing = self.spark.table(audit_table).filter(col("run_id") == lit(run_id))
+        
+        if existing.count() == 0:
+            self.logger.warning(f"No audit record found for run_id: {run_id}")
+            return
+        
+        # Get start_ts
+        start_ts = existing.select("start_ts").first()[0]
+        duration_seconds = (end_ts - start_ts).total_seconds()
+        
+        # Update record (MERGE for idempotency)
+        update_data = {
+            "run_id": run_id,
+            "status": status,
+            "end_ts": end_ts,
+            "duration_seconds": duration_seconds
+        }
+        
+        # Merge metrics if provided
+        if metrics:
+            for key, value in metrics.items():
+                update_data[key] = value
+        
+        # Write update (upsert pattern)
+        df_update = self.spark.createDataFrame([update_data])
+        df_update.createOrReplaceTempView("abc_audit_update")
+        
+        self.spark.sql(f"""
+            MERGE INTO {audit_table} AS target
+            USING abc_audit_update AS source
+            ON target.run_id = source.run_id
+            WHEN MATCHED THEN UPDATE SET *
+        """)
+        
+    except Exception as e:
+        # Resilience: log warning, write local fallback, continue
+        self.logger.warning(f"ABC end_run failed for {run_id}: {e}")
+        self._write_local_fallback("abc_audit_update", {
+            "run_id": run_id,
+            "status": status,
+            "end_ts": end_ts
+        })
+```
+
+### 6.4 log_audit() Implementation
+
+```python
+def log_audit(self, run_id: str, metrics: Dict):
+    """Log audit metrics (rows read/written/rejected, timings)."""
+    from datetime import datetime
+    
+    # Validate inputs
+    if not run_id:
+        raise ABCValidationError("run_id cannot be None or empty")
+    
+    # Build audit record
+    audit_record = {
+        "run_id": run_id,
+        "created_ts": datetime.utcnow()
+    }
+    audit_record.update(metrics)
+    
+    try:
+        # Upsert into abc_audit (merge on run_id)
+        df = self.spark.createDataFrame([audit_record])
+        df.createOrReplaceTempView("abc_audit_metrics")
+        
+        audit_table = f"{self.catalog}.{self.schema}.abc_audit"
+        self.spark.sql(f"""
+            MERGE INTO {audit_table} AS target
+            USING abc_audit_metrics AS source
+            ON target.run_id = source.run_id
+            WHEN MATCHED THEN UPDATE SET *
+            WHEN NOT MATCHED THEN INSERT *
+        """)
+        
+    except Exception as e:
+        # Resilience: log warning, write local fallback, continue
+        self.logger.warning(f"ABC log_audit failed for {run_id}: {e}")
+        self._write_local_fallback("abc_audit_metrics", audit_record)
+```
+
+### 6.5 log_balance() Implementation
+
+```python
+def log_balance(self, run_id: str, checks: List[Dict]):
+    """Log balance checks (count + financial reconciliation)."""
+    import uuid
+    from datetime import datetime
+    
+    # Validate inputs
+    if not run_id:
+        raise ABCValidationError("run_id cannot be None or empty")
+    
+    if not checks:
+        return  # Nothing to log
+    
+    # Add balance_id and timestamps to each check
+    balance_records = []
+    for check in checks:
+        record = {
+            "balance_id": str(uuid.uuid4()),
+            "run_id": run_id,
+            "created_ts": datetime.utcnow()
+        }
+        record.update(check)
+        
+        # Calculate variance if source_value and target_value provided
+        if "source_value" in check and "target_value" in check:
+            variance = check["source_value"] - check["target_value"]
+            record["variance"] = variance
+            
+            # Calculate variance_percent
+            if check["source_value"] != 0:
+                variance_pct = (variance / check["source_value"]) * 100
+                record["variance_percent"] = variance_pct
+            
+            # Determine if balanced (within threshold)
+            threshold = check.get("threshold_percent", 0.01)  # Default 1%
+            record["balanced"] = abs(variance_pct) <= threshold
+        
+        balance_records.append(record)
+    
+    try:
+        # Insert into abc_balance
+        df = self.spark.createDataFrame(balance_records)
+        df.write.format("delta").mode("append").saveAsTable(
+            f"{self.catalog}.{self.schema}.abc_balance"
+        )
+        
+    except Exception as e:
+        # Resilience: log warning, write local fallback, continue
+        self.logger.warning(f"ABC log_balance failed for {run_id}: {e}")
+        for record in balance_records:
+            self._write_local_fallback("abc_balance", record)
+```
+
+### 6.6 log_dq() Implementation
+
+```python
+def log_dq(self, run_id: str, results: List[Dict]):
+    """Log DQ rule outcomes."""
+    import uuid
+    from datetime import datetime
+    
+    # Validate inputs
+    if not run_id:
+        raise ABCValidationError("run_id cannot be None or empty")
+    
+    if not results:
+        return  # Nothing to log
+    
+    # Add control_id and timestamps to each result
+    control_records = []
+    for result in results:
+        record = {
+            "control_id": str(uuid.uuid4()),
+            "run_id": run_id,
+            "control_type": "DQ_RULE",
+            "created_ts": datetime.utcnow()
+        }
+        record.update(result)
+        control_records.append(record)
+    
+    try:
+        # Insert into abc_control
+        df = self.spark.createDataFrame(control_records)
+        df.write.format("delta").mode("append").saveAsTable(
+            f"{self.catalog}.{self.schema}.abc_control"
+        )
+        
+    except Exception as e:
+        # Resilience: log warning, write local fallback, continue
+        self.logger.warning(f"ABC log_dq failed for {run_id}: {e}")
+        for record in control_records:
+            self._write_local_fallback("abc_control", record)
+```
+
+### 6.7 log_exception() Implementation
+
+```python
+def log_exception(self, run_id: str, error: Exception):
+    """Log structured exception."""
+    import uuid
+    import traceback
+    from datetime import datetime
+    
+    # Validate inputs
+    if not run_id:
+        raise ABCValidationError("run_id cannot be None or empty")
+    
+    # Serialize exception
+    control_record = {
+        "control_id": str(uuid.uuid4()),
+        "run_id": run_id,
+        "control_type": "EXCEPTION",
+        "error_message": str(error),
+        "stack_trace": traceback.format_exc(),
+        "created_ts": datetime.utcnow()
+    }
+    
+    try:
+        # Insert into abc_control
+        df = self.spark.createDataFrame([control_record])
+        df.write.format("delta").mode("append").saveAsTable(
+            f"{self.catalog}.{self.schema}.abc_control"
+        )
+        
+    except Exception as e:
+        # Resilience: log warning, write local fallback, continue
+        self.logger.warning(f"ABC log_exception failed for {run_id}: {e}")
+        self._write_local_fallback("abc_control", control_record)
+```
+
+### 6.8 log_cost() Implementation
+
+```python
+def log_cost(self, run_id: str, consumption: Dict):
+    """Log cost and consumption metrics."""
+    import uuid
+    from datetime import datetime
+    
+    # Validate inputs
+    if not run_id:
+        raise ABCValidationError("run_id cannot be None or empty")
+    
+    # Build cost record
+    cost_record = {
+        "cost_id": str(uuid.uuid4()),
+        "run_id": run_id,
+        "created_ts": datetime.utcnow()
+    }
+    cost_record.update(consumption)
+    
+    try:
+        # Insert into abc_cost
+        df = self.spark.createDataFrame([cost_record])
+        df.write.format("delta").mode("append").saveAsTable(
+            f"{self.catalog}.{self.schema}.abc_cost"
+        )
+        
+    except Exception as e:
+        # Resilience: log warning, write local fallback, continue
+        self.logger.warning(f"ABC log_cost failed for {run_id}: {e}")
+        self._write_local_fallback("abc_cost", cost_record)
+```
+
+### 6.9 Local Fallback Implementation
+
+```python
+def _write_local_fallback(self, table: str, data: Dict):
+    """Write ABC entry to local JSON file if Delta write fails."""
+    import json
+    from pathlib import Path
+    from datetime import datetime
+    
+    # Create fallback directory
+    fallback_dir = Path("/tmp/abc_fallback")
+    fallback_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Write to timestamped file
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    filename = fallback_dir / f"{table}_{timestamp}.json"
+    
+    try:
+        with open(filename, "w") as f:
+            json.dump(data, f, indent=2, default=str)
+        self.logger.info(f"ABC fallback written: {filename}")
+    except Exception as e:
+        self.logger.error(f"ABC fallback write failed: {e}")
+```
+
+### 6.10 Resilience Strategy
+
+**Development/Test Mode:**
+- Raise exceptions immediately for ABC failures
+- No local fallback
+- Fail fast for debugging
+
+**Production Mode (default):**
+- Downgrade ABC errors to warnings
+- Write to local JSON fallback
+- Continue data pipeline (ABC failures don't crash pipelines)
+- Log detailed error messages
+
+**Implementation:**
+```python
+# In __init__:
+self.production_mode = os.getenv("ABC_PRODUCTION_MODE", "true").lower() == "true"
+
+# In each method:
+try:
+    # ABC write operation
+    ...
+except Exception as e:
+    if self.production_mode:
+        self.logger.warning(f"ABC write failed: {e}")
+        self._write_local_fallback(table, record)
+    else:
+        raise ABCWriteError(f"ABC write failed: {e}") from e
+```
 
 ---
 
@@ -673,7 +1055,7 @@ except ABCWriteError as e:
 
 ---
 
-## 11. Regeneration contract
+## 12. Regeneration contract
 
 **Code generation scope:**
 1. **ABC class skeleton**: Generate class with 7 method signatures
@@ -700,7 +1082,7 @@ except ABCWriteError as e:
 
 ---
 
-## 12. References
+## 13. References
 
 ### Dependencies
 - None (foundation component)

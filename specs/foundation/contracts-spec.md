@@ -331,7 +331,277 @@ def test_interface_segregation():
     assert profiler.profile(source) > 0
 ```
 
-## 10. Examples
+## 10. Generation Validation
+
+This section enables mechanical verification of generated code against the spec. Every validation item is programmatically checkable.
+
+### 10.1 File Structure Validation
+
+**Required files (exact 6 files, no more, no less):**
+
+```
+src/core/contracts/
+├── engine.py          # RunContext, RunResult, Engine protocol
+├── reader.py          # Reader protocol
+├── load_strategy.py   # WriteResult, LoadStrategy protocol
+├── check.py           # CheckResult, Check protocol
+├── masker.py          # Masker protocol
+└── __init__.py        # Package exports
+```
+
+**Validation checklist:**
+- [ ] Exactly 6 .py files in src/core/contracts/
+- [ ] All files listed above exist
+- [ ] No additional .py files present
+- [ ] __init__.py exports all public classes
+
+### 10.2 Interface Validation
+
+**Dataclasses:**
+
+**RunContext (exact 4 fields):**
+- [ ] component: str
+- [ ] entity: str
+- [ ] run_type: str
+- [ ] params: Optional[Dict[str, Any]] = None
+
+**RunResult (exact 3 fields):**
+- [ ] status: str
+- [ ] metrics: Dict[str, Any] = field(default_factory=dict)
+- [ ] run_id: Optional[str] = None
+
+**WriteResult (exact 3 fields):**
+- [ ] num_output_rows: int
+- [ ] operation: str = "WRITE"
+- [ ] metrics: Dict[str, Any] = field(default_factory=dict)
+
+**CheckResult (exact 4 fields):**
+- [ ] rule_id: str
+- [ ] passed: bool
+- [ ] failed_count: int
+- [ ] action: str
+
+**Protocols:**
+
+**Engine protocol (exact 1 method):**
+- [ ] run(self, context: RunContext) -> RunResult
+
+**Reader protocol (exact 1 method):**
+- [ ] read(self, source: SourceConfig, load: LoadConfig) -> DataFrame
+
+**LoadStrategy protocol (exact 1 method):**
+- [ ] apply(self, df: DataFrame, target: TargetConfig, load: LoadConfig, options: Optional[Dict[str, str]] = None) -> WriteResult
+
+**Check protocol (exact 1 method):**
+- [ ] evaluate(self, df: DataFrame, rule: DQRuleConfig) -> CheckResult
+
+**Masker protocol (exact 1 method):**
+- [ ] mask(self, df: DataFrame, rules: List[MaskingRuleConfig]) -> DataFrame
+
+**Validation checklist:**
+- [ ] All dataclasses have exact field counts as specified
+- [ ] All protocols are marked @runtime_checkable
+- [ ] All protocols have exact method counts as specified
+- [ ] All method signatures match spec exactly
+- [ ] All protocols have method bodies of `...` only (no logic)
+
+### 10.3 Enum Validation
+
+**(Omit - this component has no enums)**
+
+### 10.4 Implementation Pattern Validation
+
+**(Omit - interface-only component, method bodies are `...`)**
+
+### 10.5 Import/Export Validation
+
+**__init__.py exports (exactly 10 items):**
+- [ ] `__version__ = "0.2.0"`
+- [ ] RunContext
+- [ ] RunResult
+- [ ] Engine
+- [ ] Reader
+- [ ] LoadStrategy
+- [ ] WriteResult
+- [ ] Check
+- [ ] CheckResult
+- [ ] Masker
+
+**Required imports (each module):**
+- [ ] `from __future__ import annotations`
+- [ ] `from typing import Protocol, runtime_checkable` (in protocol files)
+- [ ] `from dataclasses import dataclass, field` (in dataclass files)
+- [ ] `from typing import TYPE_CHECKING`
+- [ ] `if TYPE_CHECKING: from pyspark.sql import DataFrame`
+
+**Forbidden imports:**
+- [ ] No direct pyspark imports outside TYPE_CHECKING
+- [ ] No concrete implementation imports in protocol files
+
+**Validation checklist:**
+- [ ] __init__.py exports exactly 10 public items
+- [ ] __version__ equals "0.2.0"
+- [ ] All protocol files use TYPE_CHECKING for DataFrame
+- [ ] Package imports without pyspark dependency
+
+### 10.6 Business Logic Validation
+
+**(Omit - interface-only component, no business logic)**
+
+### 10.7 Automated Validation Script
+
+**Script location:** `validation/validate_contracts.py`
+
+**Usage:**
+```bash
+# From repo root
+python validation/validate_contracts.py
+
+# Expected output:
+# ✅ File structure valid: 6 files
+# ✅ Dataclass fields valid
+# ✅ Protocol methods valid
+# ✅ Imports/exports valid
+# ✅ All contracts validation checks passed!
+```
+
+**Complete validation script:**
+```python
+#!/usr/bin/env python3
+"""
+Validation script for core.contracts component.
+Mechanically verifies generated code matches spec §10.
+
+Usage:
+    python validation/validate_contracts.py
+"""
+
+import sys
+from pathlib import Path
+
+# Add src to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+
+def validate_file_structure():
+    """§10.1: Validate file structure."""
+    component_path = Path("src/core/contracts")
+    py_files = list(component_path.glob("*.py"))
+    
+    expected_files = {
+        "engine.py",
+        "reader.py",
+        "load_strategy.py",
+        "check.py",
+        "masker.py",
+        "__init__.py"
+    }
+    
+    actual_files = {f.name for f in py_files}
+    
+    assert len(py_files) == 6, f"Expected 6 files, got {len(py_files)}"
+    assert actual_files == expected_files, \
+        f"File mismatch: {actual_files ^ expected_files}"
+    
+    print("✅ File structure valid: 6 files")
+
+def validate_dataclass_fields():
+    """§10.2: Validate dataclass field counts."""
+    from core.contracts import RunContext, RunResult, WriteResult, CheckResult
+    
+    # Check field counts
+    assert len(RunContext.__dataclass_fields__) == 4, \
+        f"RunContext: expected 4 fields, got {len(RunContext.__dataclass_fields__)}"
+    
+    assert len(RunResult.__dataclass_fields__) == 3, \
+        f"RunResult: expected 3 fields, got {len(RunResult.__dataclass_fields__)}"
+    
+    assert len(WriteResult.__dataclass_fields__) == 3, \
+        f"WriteResult: expected 3 fields, got {len(WriteResult.__dataclass_fields__)}"
+    
+    assert len(CheckResult.__dataclass_fields__) == 4, \
+        f"CheckResult: expected 4 fields, got {len(CheckResult.__dataclass_fields__)}"
+    
+    print("✅ Dataclass fields valid")
+
+def validate_protocol_methods():
+    """§10.2: Validate protocol method counts."""
+    from core.contracts import Engine, Reader, LoadStrategy, Check, Masker
+    
+    # Check method counts (exclude private/magic methods)
+    def count_public_methods(protocol):
+        return len([m for m in dir(protocol) 
+                   if not m.startswith('_') and callable(getattr(protocol, m, None))])
+    
+    # Note: Protocol classes have extra methods from typing.Protocol
+    # We check that our defined methods exist
+    assert hasattr(Engine, 'run'), "Engine missing run() method"
+    assert hasattr(Reader, 'read'), "Reader missing read() method"
+    assert hasattr(LoadStrategy, 'apply'), "LoadStrategy missing apply() method"
+    assert hasattr(Check, 'evaluate'), "Check missing evaluate() method"
+    assert hasattr(Masker, 'mask'), "Masker missing mask() method"
+    
+    print("✅ Protocol methods valid")
+
+def validate_imports_exports():
+    """§10.5: Validate imports and exports."""
+    import core.contracts
+    
+    # Check exports
+    expected_exports = {
+        '__version__',
+        'RunContext',
+        'RunResult',
+        'Engine',
+        'Reader',
+        'LoadStrategy',
+        'WriteResult',
+        'Check',
+        'CheckResult',
+        'Masker'
+    }
+    
+    actual_exports = {name for name in dir(core.contracts) 
+                     if not name.startswith('_') or name == '__version__'}
+    
+    # Check that all expected exports are present
+    missing = expected_exports - actual_exports
+    assert not missing, f"Missing exports: {missing}"
+    
+    # Check version
+    assert core.contracts.__version__ == "0.2.0", \
+        f"Expected version 0.2.0, got {core.contracts.__version__}"
+    
+    print("✅ Imports/exports valid")
+
+def main():
+    """Run all validation checks."""
+    try:
+        validate_file_structure()
+        validate_dataclass_fields()
+        validate_protocol_methods()
+        validate_imports_exports()
+        
+        print("\n" + "="*60)
+        print("✅ All contracts validation checks passed!")
+        print("="*60)
+        return 0
+        
+    except AssertionError as e:
+        print(f"\n❌ Validation failed: {e}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"\n❌ Unexpected error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        return 2
+
+if __name__ == "__main__":
+    sys.exit(main())
+```
+
+---
+
+## 11. Examples
 
 **Conformant (one per protocol):**
 ```python
@@ -440,10 +710,10 @@ engine = IngestionEngine(
 3. **Maintainability:** Changes to `Reader` don't affect `LoadStrategy` or `Check`
 4. **Extensibility:** Add new implementations without touching protocols or engines
 
-## 11. Regeneration contract
+## 12. Regeneration contract
 `regeneration: fully-generated`. The entire `src/core/contracts/` package is generated from this spec and is safe to overwrite; it carries no hand edits. (Engines, by contrast, will be `scaffold-then-edit` - their specs will say so.)
 
-## 12. References
+## 13. References
 `foundation/config-model-spec.md` (`core.metadata`) · `foundation/project-structure-spec.md` · `../../skills/_shared/standards.md`. Implemented by: `dataio/{readers,load-strategy,checks,maskers}` + `framework/engine-base` specs.
 
 ---

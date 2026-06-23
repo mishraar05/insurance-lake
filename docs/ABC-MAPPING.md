@@ -5,14 +5,14 @@
 ## 1. ABC = Audit · Balance · Control (· Cost, later)
 - **Control** = the configuration metadata that drives execution. Tables: `ABC_CYC_CTRL_TBL`, `ABC_STEP_CTRL_TBL`, `ABC_JOB_CTRL_TBL`, `ABC_JOB_PARAM_TBL`, `ABC_SRC_CTRL_TBL` (all SCD2). **The typed config-model IS this pillar.**
 - **Audit** = what ran. Tables: `ABC_CYC_RUN_TBL`, `ABC_STEP_RUN_TBL`, `ABC_JOB_RUN_TABLE` (append-only). Status, timings, record counts, errors, DQ results.
-- **Balance** = did it tie out. `THROUGHPUT` flag on `ABC_JOB_RUN_TABLE`, driven by a `JOB_TYP_CD='RECON'` job. (Optional detailed balance store can be added later — the old SDK's `abc_balance`; the doc itself only carries the flag.)
+- **Balance** = did it tie out. Driven by a `JOB_TYP_CD='RECON'` job. (Optional detailed balance store can be added later — the old SDK's `abc_balance`.)
 - **Cost** = deferred. A cost table at job-run grain for **AI cost + compute cost** (future).
 
 ## 2. Locked decisions
 | Topic | Decision |
 |---|---|
 | Grain | one entity/table load = **Job**; Step = layer-to-layer group of jobs; Cycle = workstream |
-| Role | **ABC is both orchestrator and recorder** — drives the Cycle▸Step▸Job state machine (sequential steps; jobs in parallel **batches of 20**; restart **only failed** jobs) *and* writes CTRL/RUN. No separate runner. |
+| Role | **ABC is both orchestrator and recorder** — drives the Cycle▸Step▸Job state machine (sequential steps; jobs in parallel **batches**, configurable batch size default 20; restart **only failed** jobs) *and* writes CTRL/RUN. No separate runner. |
 | Dispatch | each Job's task is resolved by `JOB_TYP_CD` to a registered **engine/handler** (ingestion, harmonization, dq, recon). **Hybrid registry + config**: engines self-register under a logical name; `JOB_TYP_CD` picks among registered handlers; contract = `JobHandler` (reuse the `Engine` Protocol) in `core/contracts`; ABC imports no concrete engine. ABC calls it, captures metrics, closes the job. |
 | RUN persistence | **append-only status events** — an `I` row at start, a separate `S`/`F` row at end. `*_RUN_SK` is the grouping key, so the PK is composite (`*_RUN_SK` + `*_STS_CD` + `AUD_DT_TM`) or a new event surrogate — *structural, not a rename*. |
 | Storage | **Delta in Unity Catalog** now; `PL_RUN_ID` carries the Databricks job/run id. **Lakebase (Postgres) a future option**, esp. for the SCD2 Control plane. |
@@ -44,7 +44,7 @@
 ## 5. Datatype refactor (column names unchanged)
 Fix only the doc's wrong/oversized types; **names stay exactly as the doc**.
 - `ERR_MSG`: `INTEGER` → **STRING** (it's an error message)
-- `THROUGHPUT`: `INTEGER` → **BOOLEAN** (balanced-or-not flag; name kept though it reads oddly)
+- `THROUGHPUT`: type stays **INTEGER** or upgrade to **DECIMAL(18,2)** (records processed per second — throughput rate metric for the job run)
 - `DATA_READ` `VARCHAR(20)` / `DATA_WRITTEN` `VARCHAR(1)` → **BIGINT** (byte sizes)
 - `RCRD_READ_CNT` / `RCRD_LD_CNT`: `VARCHAR(100)` → **BIGINT**; `RCRD_INS_CNT` / `RCRD_UPD_CNT`: `INTEGER` → **BIGINT** (avoid overflow on large loads)
 - `JOB_STRDT_TM` `VARCHAR(255)` / `JOB_ENDDT_TM` `VARCHAR(20)` → **TIMESTAMP**
@@ -53,13 +53,30 @@ Fix only the doc's wrong/oversized types; **names stay exactly as the doc**.
 - SCD2 `CURR_FLG` `VARCHAR(1)` → **BOOLEAN** (optional; keep `Y`/`N` string if you prefer the legacy convention)
 - `PL_RUN_ID` stays **STRING** (now holds the Databricks job/run id — value change, not a rename)
 
-## 6. Open / deferred
+## 6. Retry policy (DECIDED)
+**Policy:** Automatic retry on transient failures; permanent failures fail-fast.
+
+| Aspect | Decision |
+|---|---|
+| Max attempts | **3 attempts per job** (initial + 2 retries). After 3rd failure → permanent `F` status. |
+| Backoff strategy | **Exponential backoff**: 1 min, 2 min, 4 min between attempts (configurable multiplier, default 2x). |
+| Transient errors | Network timeouts, connection refused, rate limits, cluster busy, temporary permission issues (503, 429, connection errors). Auto-retry these. |
+| Permanent errors | Schema mismatch, missing table/column, auth denied (401/403), invalid SQL syntax, business logic violations. Fail immediately — no retry. |
+| Tracking columns | Add to `ABC_JOB_RUN_TABLE`: `RETRY_ATTEMPT_NUM` (1, 2, 3), `RETRY_REASON` (error classifier), `NEXT_RETRY_DTS` (calculated next attempt time). |
+| Cross-cycle behavior | Retry count resets per cycle — each new cycle starts fresh at attempt 1. |
+| Timeout window | Max 30 minutes from first attempt to final retry. If exceeded, mark as permanent failure. |
+| Handler contract | `JobHandler` returns `JobResult` with `is_transient: bool` flag to guide retry logic. |
+
+**Implementation:** `job_end` checks `is_transient` + `RETRY_ATTEMPT_NUM`; if transient and < 3 attempts, schedules retry; else writes final `F`.
+
+## 7. Open / deferred
 - **JobHandler dispatch** — DECIDED: hybrid registry + config (engines self-register under a logical name; `JOB_TYP_CD` selects; contract = `JobHandler` ≈ the `Engine` Protocol, in `core/contracts`; ABC imports no engine). Handler returns a `JobResult`/`RunResult` carrying the audit counts ABC writes.
+- **Batch size** — configurable parameter for parallel job execution (default 20); add to SDK config as `batch_size: int = 20`.
 - **Cost** — AI (tokens/$) + compute (DBU/$) at job-run grain; not now.
 - **Lakebase** — future store for the Control plane (Postgres/OLTP fit for SCD2 + point reads).
-- **Balance detail table** — keep just `THROUGHPUT`, or add a variance/threshold store (old `abc_balance`)?
+- **Balance detail table** — add a variance/threshold/recon-result store (old `abc_balance`) beyond the base audit metrics?
 
-## 7. Next steps
+## 8. Next steps
 1. Rewrite `config-model-spec` → Control plane: PARAM-backed storage, source by reference, validation-on-read `ConfigLoader`.
 2. Rewrite `abc-sdk-spec` → orchestrator + recorder over Cycle▸Step▸Job, append-only RUN, SCD2 Control read, dispatch-by-`JOB_TYP_CD`.
 3. Regenerate from the hardened specs, one component at a time, lint backstop on.
