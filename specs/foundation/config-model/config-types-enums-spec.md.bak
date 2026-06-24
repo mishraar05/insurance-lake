@@ -342,7 +342,7 @@ Each enum value has an implicit confidence score based on production usage:
 
 ---
 
-### 3.6 LoadType
+### 3.5 LoadType
 **Purpose:** Batch vs streaming ingestion
 
 **Valid values:**
@@ -434,7 +434,7 @@ Each enum value has an implicit confidence score based on production usage:
 
 ---
 
-### 3.10 OnFailure
+### 3.9 OnFailure
 **Purpose:** Data quality failure actions
 
 **Valid values:**
@@ -452,7 +452,7 @@ Each enum value has an implicit confidence score based on production usage:
 
 ---
 
-### 3.11 TransformType
+### 3.10 TransformType
 **Purpose:** Transformation logic types
 
 **Valid values:**
@@ -467,7 +467,7 @@ Each enum value has an implicit confidence score based on production usage:
 
 ---
 
-### 3.12 SCDType
+### 3.11 SCDType
 **Purpose:** Slowly Changing Dimension handling
 
 **Valid values:**
